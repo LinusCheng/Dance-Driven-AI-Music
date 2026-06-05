@@ -23,6 +23,7 @@ export function createUI(root) {
   const fpsValue = root.getElementById('fpsValue');
   const stageMessage = root.getElementById('stageMessage');
   const retryCameraBtn = root.getElementById('retryCameraBtn');
+  const backendStatus = root.getElementById('backendStatus');
 
   const energyValue = root.getElementById('energyValue');
   const opennessValue = root.getElementById('opennessValue');
@@ -263,6 +264,16 @@ export function createUI(root) {
     pushEvent(`Error: ${text}`);
   }
 
+  function setBackendStatus(text, connected = false) {
+    if (!backendStatus) {
+      return;
+    }
+
+    backendStatus.textContent = text;
+    backendStatus.classList.toggle('connected', connected);
+    backendStatus.classList.toggle('disconnected', !connected);
+  }
+
   function onRetry(handler) {
     if (!retryCameraBtn) {
       return;
@@ -287,6 +298,7 @@ export function createUI(root) {
   return {
     update,
     setStatus,
+    setBackendStatus,
     showError,
     onRetry,
   };

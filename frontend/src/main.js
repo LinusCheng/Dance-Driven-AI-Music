@@ -3,6 +3,7 @@ import { createPoseTracker, listCameraDevices } from './tracker.js';
 import { createMetricsCalculator } from './metrics.js';
 import { createPoseDrawer } from './drawing.js';
 import { createUI } from './ui.js';
+import { createBackendClient } from './backendSocket.js';
 
 document.querySelector('#app').innerHTML = `
   <div class="app-shell">
@@ -22,6 +23,7 @@ document.querySelector('#app').innerHTML = `
           <button id="retryCameraBtn" class="retry-btn" type="button">Retry Camera</button>
         </div>
         <div class="fps-chip">FPS <span id="fpsValue">0</span></div>
+        <div id="backendStatus" class="backend-status disconnected">backend disconnected</div>
       </div>
     </header>
 
@@ -154,6 +156,7 @@ const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('overlay');
 
 const ui = createUI(document);
+const backendClient = createBackendClient(ui);
 const metricsCalculator = createMetricsCalculator();
 const poseDrawer = createPoseDrawer(canvasElement);
 const cameraSelect = document.getElementById('cameraSelect');
@@ -227,17 +230,20 @@ async function startTracker(deviceId = currentCameraDeviceId) {
 
       const movementData = {
         fps,
-        energy: metrics.energy,
-        openness: metrics.openness,
-        rotation: metrics.rotation,
+        energy: metrics.energy.value,
+        openness: metrics.openness.value,
+        rotation: metrics.rotation.value,
+        smile: metrics.face.smile,
+        mouthOpen: metrics.face.mouthOpen,
         leftArmHeight: metrics.leftArm.height,
         rightArmHeight: metrics.rightArm.height,
-        leftLeg: metrics.leftLeg,
-        rightLeg: metrics.rightLeg,
-        landmarks,
+        gestureLeft: metrics.hands.left.gesture,
+        gestureRight: metrics.hands.right.gesture,
+        timestamp: timestampMs,
       };
 
       window.movementData = movementData;
+      backendClient.updateMovementData(movementData);
       ui.update(metrics);
     },
     onStatus: (text) => ui.setStatus(text),

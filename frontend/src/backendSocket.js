@@ -1,0 +1,123 @@
+const BACKEND_URL = 'ws://localhost:8765';
+const RECONNECT_DELAY_MS = 3000;
+const SEND_INTERVAL_MS = 250;
+
+export function createBackendClient(ui) {
+  let socket = null;
+  let reconnectTimer = null;
+  let sendTimer = null;
+  let latestMovementData = null;
+  let manualClose = false;
+
+  function setStatus(text, connected = false) {
+    if (ui?.setBackendStatus) {
+      ui.setBackendStatus(text, connected);
+    }
+  }
+
+  function cleanupSocket() {
+    if (socket) {
+      socket.onopen = null;
+      socket.onclose = null;
+      socket.onerror = null;
+      socket.onmessage = null;
+      socket.close();
+      socket = null;
+    }
+  }
+
+  function scheduleReconnect() {
+    if (manualClose || reconnectTimer) {
+      return;
+    }
+
+    setStatus('backend disconnected', false);
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, RECONNECT_DELAY_MS);
+  }
+
+  function connect() {
+    cleanupSocket();
+
+    try {
+      setStatus('backend connecting...', false);
+      socket = new WebSocket(BACKEND_URL);
+    } catch (error) {
+      console.warn('WebSocket connect failed', error);
+      scheduleReconnect();
+      return;
+    }
+
+    socket.onopen = () => {
+      setStatus('backend connected', true);
+      console.info('Backend WebSocket connected.');
+    };
+
+    socket.onmessage = (event) => {
+      console.debug('Backend emitted:', event.data);
+    };
+
+    socket.onerror = () => {
+      console.warn('Backend WebSocket error.');
+      scheduleReconnect();
+    };
+
+    socket.onclose = () => {
+      console.info('Backend WebSocket closed.');
+      scheduleReconnect();
+    };
+  }
+
+  function sendMovementData() {
+    if (!socket || socket.readyState !== WebSocket.OPEN || !latestMovementData) {
+      return;
+    }
+
+    try {
+      const payload = {
+        ...latestMovementData,
+        timestamp: Date.now(),
+      };
+      socket.send(JSON.stringify(payload));
+    } catch (error) {
+      console.warn('Failed to send backend payload:', error);
+    }
+  }
+
+  function startSendLoop() {
+    if (sendTimer) {
+      return;
+    }
+
+    sendTimer = window.setInterval(() => {
+      sendMovementData();
+    }, SEND_INTERVAL_MS);
+  }
+
+  function stopSendLoop() {
+    if (sendTimer) {
+      window.clearInterval(sendTimer);
+      sendTimer = null;
+    }
+  }
+
+  function dispose() {
+    manualClose = true;
+    stopSendLoop();
+    cleanupSocket();
+  }
+
+  function updateMovementData(data) {
+    latestMovementData = data;
+  }
+
+  connect();
+  startSendLoop();
+
+  return {
+    updateMovementData,
+    dispose,
+  };
+}

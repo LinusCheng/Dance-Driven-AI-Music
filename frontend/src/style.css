@@ -73,6 +73,32 @@ body {
   justify-content: flex-end;
 }
 
+.backend-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 170px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: rgba(94, 238, 255, 0.1);
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.backend-status.connected {
+  color: #a8ffd7;
+  border-color: #a8ffd7;
+  background: rgba(168, 255, 215, 0.14);
+}
+
+.backend-status.disconnected {
+  color: #ffb6a3;
+  border-color: #ffb6a3;
+  background: rgba(255, 182, 163, 0.14);
+}
+
 .camera-control {
   display: flex;
   align-items: end;
