@@ -1,1 +1,4 @@
 websockets>=11.0
+magenta-rt[mlx]>=2.0.2
+sounddevice>=0.4.8
+numpy>=1.24
