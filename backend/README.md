@@ -45,6 +45,15 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Optional bootstrap
+
+The repository contains `bootstrap.sh` which can automate venv creation and install. From `backend` run:
+
+```bash
+./bootstrap.sh --help
+./bootstrap.sh --start   # sets up venv and starts backend
+```
+
 ## Run
 
 Start the backend normally:
@@ -64,6 +73,16 @@ Run a short Magenta integration test using the backend's MRT2 wrapper:
 ```bash
 python main.py --test-magenta
 ```
+
+Realtime MRT2 streaming
+
+To enable the realtime streaming engine (streams directly to mac speakers via `sounddevice`), start:
+
+```bash
+python main.py --engine mrt2
+```
+
+If you experience audio issues on macOS, see `backend/MAGENTA_SETUP.md` for device selection and troubleshooting notes.
 
 For a direct MRT2 runtime validation script, use:
 
