@@ -1,9 +1,9 @@
 # Dependencies
-node_modules/
-package-lock.json
+frontend/node_modules/
+frontend/package-lock.json
 
 # Build output
-dist/
+frontend/dist/
 
 # Hidden files
 .*
