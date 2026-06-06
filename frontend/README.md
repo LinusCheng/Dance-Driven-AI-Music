@@ -39,16 +39,33 @@ npm install
 
 3. Start the application:
 ```bash
-npm start
+npm run dev
 ```
 
 ## Running with RealTimeHub
 
 By default the frontend connects to the RealTimeHub WebSocket at `ws://localhost:8765`.
 
-To develop with real-time music, start RealTimeHub first (see `../RealTimeHub/README.md`) and then run `npm start` in this folder.
+To develop with real-time music, start RealTimeHub first (see `../RealTimeHub/README.md`) and then run `npm run dev` in this folder.
 
 If you want to use the frontend standalone for UI development, open `index.html` in a browser, but the music features require RealTimeHub.
+
+## Running with SunoHub
+
+The Suno loop panel connects to SunoHub at `http://127.0.0.1:8000`. It only sends explicit text prompts when you click Generate; it does not consume motion data.
+
+Start SunoHub in another terminal:
+
+```bash
+cd ../SunoHub
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python app.py
+```
+
+Set `SUNO_API_KEY` in `SunoHub/.env` before generating clips.
 
 ## Offline / network requirements
 

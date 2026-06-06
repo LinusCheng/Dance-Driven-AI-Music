@@ -4,6 +4,7 @@ import { createMetricsCalculator } from './metrics.js';
 import { createPoseDrawer } from './drawing.js';
 import { createUI } from './ui.js';
 import { createBackendClient } from './backendSocket.js';
+import { createSunoHubClient } from './sunoHubClient.js';
 
 document.querySelector('#app').innerHTML = `
   <div class="app-shell">
@@ -167,6 +168,29 @@ document.querySelector('#app').innerHTML = `
         </div>
       </section>
 
+      <section class="suno-panel">
+        <div class="section-head">
+          <h2>Suno loops</h2>
+          <span id="sunoStatus" class="backend-debug-age">offline</span>
+        </div>
+        <input id="sunoTitleInput" class="suno-input" maxlength="80" placeholder="Optional title" />
+        <textarea id="sunoPromptInput" class="suno-input suno-textarea" rows="3" maxlength="500" placeholder="late-night disco house, tight bass, bright hooks"></textarea>
+        <div class="suno-actions">
+          <button id="sunoGenerateBtn" class="backend-debug-toggle" type="button">Generate</button>
+        </div>
+        <div class="suno-audio-grid">
+          <label>
+            <span>Preview</span>
+            <audio id="sunoPreviewAudio" controls></audio>
+          </label>
+          <label>
+            <span>Final</span>
+            <audio id="sunoFinalAudio" controls></audio>
+          </label>
+        </div>
+        <div id="sunoLoopGrid" class="suno-loop-grid" aria-label="Generated Suno loops"></div>
+      </section>
+
       <section class="event-panel">
         <h2>Event log</h2>
         <ul id="eventLog"></ul>
@@ -196,6 +220,7 @@ const canvasElement = document.getElementById('overlay');
 
 const ui = createUI(document);
 const backendClient = createBackendClient(ui);
+const sunoHubClient = createSunoHubClient(document);
 ui.onBackendDebugToggle(() => {
   backendClient.toggleBackendDebug();
 });
@@ -347,4 +372,5 @@ window.addEventListener('beforeunload', () => {
   if (tracker) {
     tracker.stop();
   }
+  sunoHubClient.disconnect();
 });

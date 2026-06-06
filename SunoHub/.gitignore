@@ -1,0 +1,6 @@
+.env
+.venv/
+downloads/
+loops/
+__pycache__/
+*.pyc

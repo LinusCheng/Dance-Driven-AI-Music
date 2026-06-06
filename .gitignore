@@ -8,11 +8,20 @@ frontend/dist/
 # Runtime logs
 *.log
 RealTimeHub/log/
+SunoHub/downloads/
+SunoHub/loops/
+SunoHub/.venv/
 
 # Python generated files
 __pycache__/
 *.pyc
 
+# Local secrets
+.env
+SunoHub/.env
+
 # Hidden files
 .*
 !.gitignore
+!SunoHub/.gitignore
+!SunoHub/.env.example
