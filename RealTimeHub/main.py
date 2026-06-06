@@ -43,7 +43,7 @@ def configure_logging(verbose: bool) -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
-    logging.getLogger('RealTimeHub.mrt2_realtime').setLevel(logging.DEBUG if verbose else logging.WARNING)
+    logging.getLogger('RealTimeHub.mrt2_realtime').setLevel(logging.DEBUG if verbose else logging.INFO)
     logging.getLogger('RealTimeHub.magenta_engine').setLevel(logging.DEBUG if verbose else logging.INFO)
 
 

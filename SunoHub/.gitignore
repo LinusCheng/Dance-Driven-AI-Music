@@ -1,6 +1,7 @@
 .env
 .venv/
 downloads/
+jobs/
 loops/
 __pycache__/
 *.pyc

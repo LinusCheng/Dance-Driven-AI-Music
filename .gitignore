@@ -9,6 +9,7 @@ frontend/dist/
 *.log
 RealTimeHub/log/
 SunoHub/downloads/
+SunoHub/jobs/
 SunoHub/loops/
 SunoHub/.venv/
 

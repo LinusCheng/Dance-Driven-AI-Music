@@ -56,6 +56,7 @@ class MRT2RealtimeEngine:
         self._last_embedded_prompt = None
         self._prompt_changed = False
         self._style_embedding = None
+        self._last_manual_prompt = ''
         self._controls = {
             'cfg_musiccoca': 1.0,
             'cfg_notes': 1.0,
@@ -134,7 +135,15 @@ class MRT2RealtimeEngine:
                     # remaining frames are zero (silence)
                     now = time.monotonic()
                     if logger.isEnabledFor(logging.DEBUG) or now - self._last_underrun_log_ts >= 2.0:
-                        logger.warning('MRT2RealtimeEngine: buffer underrun on callback #%d (had %d samples, need %d)', callback_count[0], buffer_before, needed)
+                        logger.warning(
+                            'MRT2RealtimeEngine: buffer underrun on callback #%d '
+                            '(had %d samples, need %d, modelReady=%s, running=%s)',
+                            callback_count[0],
+                            buffer_before,
+                            needed,
+                            self._model_ready.is_set(),
+                            self._running,
+                        )
                         last_log_count[0] = callback_count[0]
                         self._last_underrun_log_ts = now
 
@@ -298,6 +307,14 @@ class MRT2RealtimeEngine:
                         self._append_buffer(samples)
                         new_buf_secs = self._current_buffer_seconds()
                         logger.debug('MRT2RealtimeEngine: generated chunk #%d: %d samples (peak=%.4f, buffer now %.2fs)', gen_count, samples.shape[0], peak, new_buf_secs)
+                        if gen_count == 1 or gen_count % 10 == 0:
+                            logger.info(
+                                'MRT2RealtimeEngine: generated chunk #%d samples=%d peak=%.4f buffer=%.2fs',
+                                gen_count,
+                                samples.shape[0],
+                                peak,
+                                new_buf_secs,
+                            )
                     except Exception as e:
                         fail_count += 1
                         logger.error('MRT2RealtimeEngine: generation failed (attempt %d): %s', fail_count, str(e))
@@ -336,12 +353,18 @@ class MRT2RealtimeEngine:
             if b > 0.6:
                 prompt_text += ' | bright harmony'
 
+        manual_prompt_changed = manual_prompt != self._last_manual_prompt
         prompt_changed = prompt_text != self._prompt
         self._prompt = prompt_text
         if prompt_changed:
             self._prompt_changed = True
-            self.model_state = None
-            self._clear_buffer()
+            if manual_prompt_changed:
+                self.model_state = None
+                self._clear_buffer()
+                logger.info('MRT2RealtimeEngine: manual prompt changed; reset model state and audio buffer')
+            else:
+                logger.info('MRT2RealtimeEngine: style prompt changed without clearing audio buffer')
+        self._last_manual_prompt = manual_prompt
         # target numeric controls
         self._target_controls['cfg_musiccoca'] = 1.0 + float(music_state.get('tension', 0.0)) * 2.0
         self._target_controls['cfg_notes'] = 1.0 + float(music_state.get('density', 0.0)) * 2.0

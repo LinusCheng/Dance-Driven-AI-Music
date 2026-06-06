@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
-
-from pydub import AudioSegment
+from typing import Any, Dict, List, Optional
 
 
 def slice_audio(
     input_path: Path,
     output_dir: Path,
-    seconds: float | None = None,
-    max_loops: int | None = None,
-) -> list[dict[str, Any]]:
+    seconds: Optional[float] = None,
+    max_loops: Optional[int] = None,
+) -> List[Dict[str, Any]]:
     loop_seconds = float(seconds or os.getenv("SUNOHUB_LOOP_SECONDS", "8"))
     loop_ms = int(loop_seconds * 1000)
     max_loop_count = int(max_loops or os.getenv("SUNOHUB_MAX_LOOPS", "12"))
@@ -24,8 +22,10 @@ def slice_audio(
     for old_loop in output_dir.glob("loop_*.wav"):
         old_loop.unlink()
 
+    from pydub import AudioSegment
+
     audio = AudioSegment.from_file(input_path)
-    loops: list[dict[str, Any]] = []
+    loops: List[Dict[str, Any]] = []
 
     for index, start_ms in enumerate(range(0, len(audio), loop_ms), start=1):
         if len(loops) >= max_loop_count:

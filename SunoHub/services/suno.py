@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Dict, Optional
 
 import httpx
 
@@ -9,7 +9,7 @@ SUNO_API_BASE = "https://api.suno.com/v0/audio"
 
 
 class SunoApiError(Exception):
-    def __init__(self, message: str, status_code: int = 500, details: dict[str, Any] | None = None):
+    def __init__(self, message: str, status_code: int = 500, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)
         self.status_code = status_code
         self.details = details or {}
@@ -22,7 +22,7 @@ def suno_api_key() -> str:
     return key
 
 
-async def parse_response(response: httpx.Response) -> dict[str, Any]:
+async def parse_response(response: httpx.Response) -> Dict[str, Any]:
     try:
         body = response.json()
     except ValueError:
@@ -37,9 +37,9 @@ async def parse_response(response: httpx.Response) -> dict[str, Any]:
 
 async def create_audio(
     description: str,
-    title: str | None = None,
-    voice_id: str | None = None,
-) -> dict[str, Any]:
+    title: Optional[str] = None,
+    voice_id: Optional[str] = None,
+) -> Dict[str, Any]:
     body = {
         "description": description,
         "title": title,
@@ -59,7 +59,7 @@ async def create_audio(
     return await parse_response(response)
 
 
-async def get_audio(audio_id: str) -> dict[str, Any]:
+async def get_audio(audio_id: str) -> Dict[str, Any]:
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.get(
             f"{SUNO_API_BASE}/{audio_id}",

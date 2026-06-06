@@ -41,6 +41,14 @@ Static output:
 /loops
 ```
 
+Local job metadata is written to:
+
+```text
+SunoHub/jobs/{audio_id}.json
+```
+
+Those JSON files record the prompt, Suno audio id, latest status, source URL, local downloaded audio path, and loop metadata when slicing succeeds.
+
 ## WebSocket Events
 
 Main endpoint:
