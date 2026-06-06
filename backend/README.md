@@ -62,6 +62,18 @@ Start the backend normally:
 python main.py
 ```
 
+Default logs are intentionally concise. When the frontend is connected, the backend prints a compact feature summary about once per second:
+
+```text
+features energy=0.42 openness=0.58 rotation=-0.11 smile=0.22 mouth=0.04 arms=MID/HIGH gestures=none/fist -> music density=0.47 brightness=0.61 tension=0.10 event=right_fist
+```
+
+Use verbose mode only when you need full payloads and detailed audio-engine diagnostics:
+
+```bash
+python main.py --verbose
+```
+
 Run in forced mock mode:
 
 ```bash

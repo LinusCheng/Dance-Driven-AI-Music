@@ -68,6 +68,7 @@ class MRT2RealtimeEngine:
 
         # underrun tracking
         self._underrun_count = 0
+        self._last_underrun_log_ts = 0.0
 
     def _select_runtime_class(self):
         for name in ('MagentaRT2Mlxfn', 'MagentaRT2Mlx', 'MagentaRT2Jax'):
@@ -93,7 +94,7 @@ class MRT2RealtimeEngine:
             callback_count[0] += 1
             if status.output_underflow:
                 self._underrun_count += 1
-                logger.warning('MRT2RealtimeEngine: audio underrun [total=%d]', self._underrun_count)
+                logger.debug('MRT2RealtimeEngine: audio underrun [total=%d]', self._underrun_count)
             if status.input_underflow:
                 logger.warning('MRT2RealtimeEngine: input underflow')
 
@@ -129,9 +130,11 @@ class MRT2RealtimeEngine:
                             self._buffer_samples -= take
                             read += take
                     # remaining frames are zero (silence)
-                    if callback_count[0] - last_log_count[0] > 1 or buffer_before == 0:
+                    now = time.monotonic()
+                    if logger.isEnabledFor(logging.DEBUG) or now - self._last_underrun_log_ts >= 2.0:
                         logger.warning('MRT2RealtimeEngine: buffer underrun on callback #%d (had %d samples, need %d)', callback_count[0], buffer_before, needed)
                         last_log_count[0] = callback_count[0]
+                        self._last_underrun_log_ts = now
 
             outdata[:] = out
             if callback_count[0] % 100 == 0:
@@ -241,8 +244,8 @@ class MRT2RealtimeEngine:
                 if buf_secs < min_buffer_seconds:
                     try:
                         frames = self.frames_per_chunk
-                        logger.info('MRT2RealtimeEngine: generating %d frames (buffer %.2fs < %.2fs target)', frames, buf_secs, min_buffer_seconds)
-                        logger.info('MRT2RealtimeEngine: calling model.generate with controls: %s', self._controls)
+                        logger.debug('MRT2RealtimeEngine: generating %d frames (buffer %.2fs < %.2fs target)', frames, buf_secs, min_buffer_seconds)
+                        logger.debug('MRT2RealtimeEngine: calling model.generate with controls: %s', self._controls)
                         
                         wav, state = self.model.generate(
                             style=self._style_embedding,
@@ -260,11 +263,11 @@ class MRT2RealtimeEngine:
 
                         # extract samples from Waveform
                         samples = np.array(wav.samples, dtype='float32')
-                        logger.info('MRT2RealtimeEngine: model.generate returned %d samples with shape %s', len(samples), samples.shape)
+                        logger.debug('MRT2RealtimeEngine: model.generate returned %d samples with shape %s', len(samples), samples.shape)
                         
                         # convert stereo to mono if needed (take first channel)
                         if samples.ndim == 2 and samples.shape[1] > 1:
-                            logger.info('MRT2RealtimeEngine: converting stereo to mono (taking first channel)')
+                            logger.debug('MRT2RealtimeEngine: converting stereo to mono (taking first channel)')
                             samples = samples[:, 0]
                         
                         # ensure shape (N, channels)
@@ -284,7 +287,7 @@ class MRT2RealtimeEngine:
 
                         self._append_buffer(samples)
                         new_buf_secs = self._current_buffer_seconds()
-                        logger.info('MRT2RealtimeEngine: generated chunk #%d: %d samples (peak=%.4f, buffer now %.2fs)', gen_count, samples.shape[0], peak, new_buf_secs)
+                        logger.debug('MRT2RealtimeEngine: generated chunk #%d: %d samples (peak=%.4f, buffer now %.2fs)', gen_count, samples.shape[0], peak, new_buf_secs)
                     except Exception as e:
                         fail_count += 1
                         logger.error('MRT2RealtimeEngine: generation failed (attempt %d): %s', fail_count, str(e))
@@ -330,7 +333,7 @@ class MRT2RealtimeEngine:
         self._target_controls['temperature'] = 0.8 + float(music_state.get('tension', 0.0)) * 0.8
         self._target_controls['top_k'] = max(1, min(80, 20 + int(float(music_state.get('harmonyWidth', 0.0)) * 30)))
 
-        logger.info('MRT2RealtimeEngine: prompt updated: %s', self._prompt)
+        logger.debug('MRT2RealtimeEngine: prompt updated: %s', self._prompt)
 
     def shutdown(self) -> None:
         logger.info('MRT2RealtimeEngine: shutting down')

@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import sys
+import time
 from typing import Any, Optional
 
 import websockets
@@ -24,6 +25,7 @@ latest_music_state: dict[str, Any] = {}
 
 smoother = ExponentialSmoother(alpha=0.32)
 magenta_engine: Optional[MagentaEngine] = None
+last_feature_log_ts = 0.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,7 +33,43 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--mock-magenta', action='store_true', help='Force mock Magenta mode.')
     parser.add_argument('--test-magenta', action='store_true', help='Run a short Magenta test and exit.')
     parser.add_argument('--engine', default='mrt2', help='Music engine: "mrt2" (realtime, default) or "batch" (WAV files).')
+    parser.add_argument('--verbose', action='store_true', help='Show full dance/music payloads and engine diagnostics.')
     return parser.parse_args()
+
+
+def configure_logging(verbose: bool) -> None:
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+
+    logging.getLogger('backend.mrt2_realtime').setLevel(logging.DEBUG if verbose else logging.WARNING)
+    logging.getLogger('backend.magenta_engine').setLevel(logging.DEBUG if verbose else logging.INFO)
+
+
+def log_feature_summary(dance_state: dict[str, Any], music_state: dict[str, Any], interval_seconds: float = 1.0) -> None:
+    global last_feature_log_ts
+
+    now = time.monotonic()
+    if now - last_feature_log_ts < interval_seconds:
+        return
+
+    last_feature_log_ts = now
+    logger.info(
+        'features energy=%.2f openness=%.2f rotation=%.2f smile=%.2f mouth=%.2f '
+        'arms=%s/%s gestures=%s/%s -> music density=%.2f brightness=%.2f tension=%.2f event=%s',
+        float(dance_state.get('energy', 0.0)),
+        float(dance_state.get('openness', 0.0)),
+        float(dance_state.get('rotation', 0.0)),
+        float(dance_state.get('smile', 0.0)),
+        float(dance_state.get('mouthOpen', 0.0)),
+        dance_state.get('leftArmHeight', 'LOW'),
+        dance_state.get('rightArmHeight', 'LOW'),
+        dance_state.get('gestureLeft', 'none'),
+        dance_state.get('gestureRight', 'none'),
+        float(music_state.get('density', 0.0)),
+        float(music_state.get('brightness', 0.0)),
+        float(music_state.get('tension', 0.0)),
+        music_state.get('gestureEvent', 'none'),
+    )
 
 
 async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> None:
@@ -62,8 +100,9 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
             latest_dance_state.update(smoothed)
             latest_music_state.update(music_state)
 
-            logger.info('danceState %s', smoothed)
-            logger.info('musicState %s', music_state)
+            log_feature_summary(smoothed, music_state)
+            logger.debug('danceState %s', smoothed)
+            logger.debug('musicState %s', music_state)
             if magenta_engine is not None:
                 magenta_engine.update_music_state(music_state)
 
@@ -91,6 +130,7 @@ async def run_server() -> None:
 def main() -> int:
     global magenta_engine
     args = parse_args()
+    configure_logging(args.verbose)
 
     # select engine implementation
     engine_name = args.engine
