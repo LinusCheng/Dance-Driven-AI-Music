@@ -9,6 +9,7 @@ from typing import Any, Optional
 import websockets
 
 from dance_state import validate_and_normalize
+from gesture_sequence import GestureSequenceDetector
 from music_engines.magenta_engine import MagentaEngine
 from music_mapper import dance_to_music_state
 from smoothing import ExponentialSmoother
@@ -24,6 +25,7 @@ latest_dance_state: dict[str, Any] = {}
 latest_music_state: dict[str, Any] = {}
 
 smoother = ExponentialSmoother(alpha=0.32)
+gesture_sequence_detector = GestureSequenceDetector()
 magenta_engine: Optional[MagentaEngine] = None
 last_feature_log_ts = 0.0
 
@@ -55,7 +57,7 @@ def log_feature_summary(dance_state: dict[str, Any], music_state: dict[str, Any]
     last_feature_log_ts = now
     logger.info(
         'features energy=%.2f openness=%.2f rotation=%.2f smile=%.2f mouth=%.2f '
-        'arms=%s/%s gestures=%s/%s -> music density=%.2f brightness=%.2f tension=%.2f event=%s',
+        'arms=%s/%s gestures=%s/%s -> music density=%.2f brightness=%.2f tension=%.2f genre=%s bpm=%s event=%s',
         float(dance_state.get('energy', 0.0)),
         float(dance_state.get('openness', 0.0)),
         float(dance_state.get('rotation', 0.0)),
@@ -68,6 +70,8 @@ def log_feature_summary(dance_state: dict[str, Any], music_state: dict[str, Any]
         float(music_state.get('density', 0.0)),
         float(music_state.get('brightness', 0.0)),
         float(music_state.get('tension', 0.0)),
+        music_state.get('genre', 'adaptive'),
+        music_state.get('bpm', '--'),
         music_state.get('gestureEvent', 'none'),
     )
 
@@ -98,6 +102,9 @@ def build_debug_payload(dance_state: dict[str, Any], music_state: dict[str, Any]
             'rhythm': round(float(music_state.get('rhythmicActivity', 0.0)), 2),
             'width': round(float(music_state.get('harmonyWidth', 0.0)), 2),
             'event': music_state.get('gestureEvent', 'none'),
+            'genre': music_state.get('genre', 'adaptive'),
+            'bpm': music_state.get('bpm'),
+            'gestureSequence': music_state.get('gestureSequence'),
         },
         'mrt2': engine_state,
     }
@@ -152,7 +159,8 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
                 continue
 
             smoothed = smoother.smooth_state(dance_state)
-            music_state = dance_to_music_state(smoothed)
+            style_state = gesture_sequence_detector.update(smoothed)
+            music_state = dance_to_music_state(smoothed, style_state)
 
             latest_dance_state.update(smoothed)
             latest_music_state.update(music_state)

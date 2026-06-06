@@ -184,6 +184,20 @@ Current prototype mappings:
 
 These mappings are expected to evolve throughout development and experimentation.
 
+## Gesture Sequence Controls
+
+The backend includes an experimental three-gesture sequence detector. A gesture must be stable briefly before it is accepted, and controls have cooldowns so the style does not flicker.
+
+You only need to remember one genre sequence and two two-hand BPM controls:
+
+| Gesture control | Action |
+| --- | --- |
+| `openPalm -> peace -> fist` | Cycle to the next genre |
+| one hand `openPalm` + other hand `point` | Increase BPM by 5 |
+| one hand `openPalm` + other hand `fist` | Decrease BPM by 5 |
+
+The genre cycle currently includes house, disco/funk, techno, ambient, cinematic, garage, drum and bass, trap, lofi, and afro house. The current genre and BPM add stronger style phrases to the Magenta prompt while the continuous movement controls still shape density, brightness, tension, rhythm, and harmony width.
+
 ## Magenta RT2
 
 Magenta integration is currently experimental.

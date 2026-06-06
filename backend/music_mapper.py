@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 from energy_normalizer import EnergyNormalizer
 
@@ -18,12 +18,19 @@ def _gesture_event(left_gesture: str, right_gesture: str) -> str:
     return 'none'
 
 
-def _prompt_hints(state: Dict[str, float]) -> List[str]:
+def _prompt_hints(state: Dict[str, float], style_state: Optional[Dict[str, Any]] = None) -> List[str]:
     hints: List[str] = []
+    genre_prompt = style_state.get('genrePrompt') if style_state else None
+    bpm_prompt = style_state.get('bpmPrompt') if style_state else None
     energy = state.get('normalizedEnergy', state.get('energy', 0.0))
     openness = state.get('openness', 0.0)
     smile = state.get('smile', 0.0)
     mouth_open = state.get('mouthOpen', 0.0)
+
+    if genre_prompt:
+        hints.append(str(genre_prompt))
+    if bpm_prompt:
+        hints.append(str(bpm_prompt))
 
     if energy > 0.65:
         hints.append('energetic rhythm')
@@ -46,7 +53,10 @@ def _prompt_hints(state: Dict[str, float]) -> List[str]:
     return hints
 
 
-def dance_to_music_state(dance_state: Dict[str, float]) -> Dict[str, object]:
+def dance_to_music_state(
+    dance_state: Dict[str, float],
+    style_state: Optional[Dict[str, Any]] = None,
+) -> Dict[str, object]:
     raw_energy = float(dance_state.get('energy', 0.0))
     normalized_energy = energy_normalizer.normalize(raw_energy)
     openness = _clamp(dance_state.get('openness', 0.0))
@@ -65,13 +75,18 @@ def dance_to_music_state(dance_state: Dict[str, float]) -> Dict[str, object]:
         'tension': tension,
         'rhythmicActivity': normalized_energy,
         'harmonyWidth': openness,
+        'genre': style_state.get('genre', 'adaptive') if style_state else 'adaptive',
+        'genrePrompt': style_state.get('genrePrompt', '') if style_state else '',
+        'bpm': style_state.get('bpm') if style_state else None,
+        'bpmPrompt': style_state.get('bpmPrompt', '') if style_state else '',
+        'gestureSequence': style_state.get('lastSequence') if style_state else None,
         'gestureEvent': _gesture_event(dance_state.get('gestureLeft', ''), dance_state.get('gestureRight', '')),
         'promptHints': _prompt_hints({
             'normalizedEnergy': normalized_energy,
             'openness': openness,
             'smile': smile,
             'mouthOpen': mouth_open,
-        }),
+        }, style_state),
     }
 
     return music_state

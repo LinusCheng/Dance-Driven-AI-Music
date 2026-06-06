@@ -304,10 +304,18 @@ export function createUI(root) {
     }
 
     if (backendMusicSummary) {
+      const sequence = music.gestureSequence?.sequence?.join(' -> ');
+      const pair = music.gestureSequence?.gesturePair?.join(' + ');
+      const gestureControlText = sequence
+        ? ` | sequence ${sequence}`
+        : pair
+          ? ` | pair ${pair}`
+          : '';
       backendMusicSummary.textContent =
         `density ${formatNumber(music.density)} | brightness ${formatNumber(music.brightness)} | ` +
         `tension ${formatNumber(music.tension)} | rhythm ${formatNumber(music.rhythm)} | ` +
-        `width ${formatNumber(music.width)} | event ${music.event ?? 'none'}`;
+        `width ${formatNumber(music.width)} | genre ${music.genre ?? 'adaptive'} | ` +
+        `bpm ${music.bpm ?? '--'} | event ${music.event ?? 'none'}${gestureControlText}`;
     }
 
     if (backendMrt2Summary) {
