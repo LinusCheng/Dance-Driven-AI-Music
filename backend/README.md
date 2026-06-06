@@ -31,36 +31,48 @@ Recommended environment:
 * Apple Silicon Mac
 * Python 3.12+
 
-Create a virtual environment:
+From the project root, enter the backend folder:
 
 ```bash
 cd backend
+```
+
+Create and activate a virtual environment:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Install dependencies:
+Install dependencies once:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Optional bootstrap
-
-The repository contains `bootstrap.sh` which can automate venv creation and install. From `backend` run:
-
-```bash
-./bootstrap.sh --help
-./bootstrap.sh --start   # sets up venv and starts backend
-```
-
-## Run
-
-Start the backend normally:
+After setup, start the backend from the same `backend` folder:
 
 ```bash
 python main.py
 ```
+
+## Run
+
+For normal development, use:
+
+```bash
+cd backend
+source .venv/bin/activate
+python main.py
+```
+
+The backend starts a WebSocket server on:
+
+```text
+ws://localhost:8765
+```
+
+Backend logs print to the terminal. They are not written to a log file unless you manually redirect output.
 
 Default logs are intentionally concise. When the frontend is connected, the backend prints a compact feature summary about once per second:
 
@@ -100,12 +112,6 @@ For a direct MRT2 runtime validation script, use:
 
 ```bash
 python test_mrt2.py
-```
-
-The backend starts a WebSocket server on:
-
-```text
-ws://localhost:8765
 ```
 
 ## Responsibilities
