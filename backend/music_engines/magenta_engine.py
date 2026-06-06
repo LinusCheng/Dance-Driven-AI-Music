@@ -92,6 +92,10 @@ class MagentaEngine:
             self.model = None
 
     def _build_prompt(self, music_state: Dict[str, Any]) -> str:
+        manual_prompt = str(music_state.get('manualPrompt') or '').strip()
+        if manual_prompt:
+            return manual_prompt
+
         prompt_parts = []
         density = _clamp(float(music_state.get('density', 0.0)))
         brightness = _clamp(float(music_state.get('brightness', 0.0)))

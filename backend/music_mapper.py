@@ -20,12 +20,16 @@ def _gesture_event(left_gesture: str, right_gesture: str) -> str:
 
 def _prompt_hints(state: Dict[str, float], style_state: Optional[Dict[str, Any]] = None) -> List[str]:
     hints: List[str] = []
+    manual_prompt = style_state.get('manualPrompt') if style_state else None
     genre_prompt = style_state.get('genrePrompt') if style_state else None
     bpm_prompt = style_state.get('bpmPrompt') if style_state else None
     energy = state.get('normalizedEnergy', state.get('energy', 0.0))
     openness = state.get('openness', 0.0)
     smile = state.get('smile', 0.0)
     mouth_open = state.get('mouthOpen', 0.0)
+
+    if manual_prompt:
+        return [str(manual_prompt)]
 
     if genre_prompt:
         hints.append(str(genre_prompt))
@@ -79,6 +83,7 @@ def dance_to_music_state(
         'genrePrompt': style_state.get('genrePrompt', '') if style_state else '',
         'bpm': style_state.get('bpm') if style_state else None,
         'bpmPrompt': style_state.get('bpmPrompt', '') if style_state else '',
+        'manualPrompt': style_state.get('manualPrompt', '') if style_state else '',
         'gestureSequence': style_state.get('lastSequence') if style_state else None,
         'gestureEvent': _gesture_event(dance_state.get('gestureLeft', ''), dance_state.get('gestureRight', '')),
         'promptHints': _prompt_hints({

@@ -8,6 +8,7 @@ export function createBackendClient(ui) {
   let sendTimer = null;
   let latestMovementData = null;
   let backendDebugEnabled = false;
+  let manualPrompt = '';
   let manualClose = false;
 
   function setStatus(text, connected = false) {
@@ -54,6 +55,7 @@ export function createBackendClient(ui) {
     socket.onopen = () => {
       setStatus('backend connected', true);
       sendBackendDebugPreference();
+      sendManualPrompt();
       console.info('Backend WebSocket connected.');
     };
 
@@ -66,6 +68,11 @@ export function createBackendClient(ui) {
         }
         if (message?.type === 'backendDebugStatus') {
           ui?.setBackendDebugEnabled?.(Boolean(message.enabled));
+          return;
+        }
+        if (message?.type === 'manualPromptStatus') {
+          manualPrompt = String(message.prompt ?? '');
+          ui?.setManualPromptStatus?.(manualPrompt);
           return;
         }
       } catch {
@@ -113,6 +120,23 @@ export function createBackendClient(ui) {
     }));
   }
 
+  function sendManualPrompt() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({
+      type: 'setManualPrompt',
+      prompt: manualPrompt,
+    }));
+  }
+
+  function setManualPrompt(prompt) {
+    manualPrompt = String(prompt ?? '').trim().slice(0, 280);
+    ui?.setManualPromptStatus?.(manualPrompt);
+    sendManualPrompt();
+  }
+
   function setBackendDebugEnabled(enabled) {
     backendDebugEnabled = Boolean(enabled);
     ui?.setBackendDebugEnabled?.(backendDebugEnabled);
@@ -158,6 +182,7 @@ export function createBackendClient(ui) {
     updateMovementData,
     toggleBackendDebug,
     setBackendDebugEnabled,
+    setManualPrompt,
     dispose,
   };
 }

@@ -53,6 +53,8 @@ class MRT2RealtimeEngine:
 
         # latest control / prompt state
         self._prompt = 'dynamic music control'
+        self._last_embedded_prompt = None
+        self._prompt_changed = False
         self._style_embedding = None
         self._controls = {
             'cfg_musiccoca': 1.0,
@@ -177,6 +179,11 @@ class MRT2RealtimeEngine:
     def _current_buffer_seconds(self) -> float:
         return self._buffer_samples / float(self.sample_rate)
 
+    def _clear_buffer(self) -> None:
+        with self._buffer_lock:
+            self._buffer.clear()
+            self._buffer_samples = 0
+
     def _generate_loop(self, min_buffer_seconds: float) -> None:
         logger.info('MRT2RealtimeEngine: generate loop started (min_buffer=%.2fs)', min_buffer_seconds)
         gen_count = 0
@@ -231,9 +238,12 @@ class MRT2RealtimeEngine:
 
                 # ensure style embedding is up to date if prompt changed
                 try:
-                    logger.debug('MRT2RealtimeEngine: embedding style prompt: %s', self._prompt)
-                    self._style_embedding = self.model.embed_style(self._prompt, use_mapper=True)
-                    logger.debug('MRT2RealtimeEngine: style embedding computed')
+                    if self._prompt_changed or self._style_embedding is None or self._prompt != self._last_embedded_prompt:
+                        logger.debug('MRT2RealtimeEngine: embedding style prompt: %s', self._prompt)
+                        self._style_embedding = self.model.embed_style(self._prompt, use_mapper=True)
+                        self._last_embedded_prompt = self._prompt
+                        self._prompt_changed = False
+                        logger.debug('MRT2RealtimeEngine: style embedding computed')
                 except Exception as e:
                     logger.error('MRT2RealtimeEngine: embed_style failed for prompt "%s": %s', self._prompt, str(e))
                     time.sleep(0.1)
@@ -310,8 +320,9 @@ class MRT2RealtimeEngine:
 
     def update_music_state(self, music_state: Dict[str, Any]) -> None:
         # translate music_state to prompt and control values
+        manual_prompt = str(music_state.get('manualPrompt') or '').strip()
         prompt_hints = music_state.get('promptHints', []) or []
-        prompt_text = ' | '.join([str(p) for p in prompt_hints if p])
+        prompt_text = manual_prompt or ' | '.join([str(p) for p in prompt_hints if p])
         if not prompt_text:
             # simple mapping based on density/brightness
             d = float(music_state.get('density', 0.0))
@@ -325,7 +336,12 @@ class MRT2RealtimeEngine:
             if b > 0.6:
                 prompt_text += ' | bright harmony'
 
+        prompt_changed = prompt_text != self._prompt
         self._prompt = prompt_text
+        if prompt_changed:
+            self._prompt_changed = True
+            self.model_state = None
+            self._clear_buffer()
         # target numeric controls
         self._target_controls['cfg_musiccoca'] = 1.0 + float(music_state.get('tension', 0.0)) * 2.0
         self._target_controls['cfg_notes'] = 1.0 + float(music_state.get('density', 0.0)) * 2.0

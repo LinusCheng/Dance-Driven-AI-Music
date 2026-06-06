@@ -125,6 +125,18 @@ document.querySelector('#app').innerHTML = `
           </div>
         </section>
       </section>
+
+      <section class="manual-prompt-panel">
+        <div class="section-head">
+          <h2>Prompt</h2>
+          <span id="manualPromptStatus" class="backend-debug-age">movement prompt</span>
+        </div>
+        <textarea id="manualPromptInput" class="manual-prompt-input" rows="4" maxlength="280" placeholder="acid house with bright stabs and punchy drums"></textarea>
+        <div class="manual-prompt-actions">
+          <button id="sendManualPrompt" class="backend-debug-toggle" type="button">Send prompt</button>
+          <button id="clearManualPrompt" class="backend-debug-toggle" type="button">Clear</button>
+        </div>
+      </section>
     </main>
 
     <section class="bottom-grid">
@@ -186,6 +198,12 @@ const ui = createUI(document);
 const backendClient = createBackendClient(ui);
 ui.onBackendDebugToggle(() => {
   backendClient.toggleBackendDebug();
+});
+ui.onManualPromptSubmit((prompt) => {
+  backendClient.setManualPrompt(prompt);
+});
+ui.onManualPromptClear(() => {
+  backendClient.setManualPrompt('');
 });
 const metricsCalculator = createMetricsCalculator();
 const poseDrawer = createPoseDrawer(canvasElement);

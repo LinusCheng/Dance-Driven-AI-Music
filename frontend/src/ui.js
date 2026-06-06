@@ -34,6 +34,10 @@ export function createUI(root) {
   const backendFeatureSummary = root.getElementById('backendFeatureSummary');
   const backendMusicSummary = root.getElementById('backendMusicSummary');
   const backendMrt2Summary = root.getElementById('backendMrt2Summary');
+  const manualPromptInput = root.getElementById('manualPromptInput');
+  const sendManualPrompt = root.getElementById('sendManualPrompt');
+  const clearManualPrompt = root.getElementById('clearManualPrompt');
+  const manualPromptStatus = root.getElementById('manualPromptStatus');
 
   const energyValue = root.getElementById('energyValue');
   const opennessValue = root.getElementById('opennessValue');
@@ -77,6 +81,8 @@ export function createUI(root) {
 
   let retryHandler = null;
   let backendDebugToggleHandler = null;
+  let manualPromptSubmitHandler = null;
+  let manualPromptClearHandler = null;
 
   let previous = {
     leftArmHeight: 'LOW',
@@ -306,6 +312,7 @@ export function createUI(root) {
     if (backendMusicSummary) {
       const sequence = music.gestureSequence?.sequence?.join(' -> ');
       const pair = music.gestureSequence?.gesturePair?.join(' + ');
+      const promptMode = music.manualPrompt ? ' | manual prompt' : '';
       const gestureControlText = sequence
         ? ` | sequence ${sequence}`
         : pair
@@ -315,7 +322,7 @@ export function createUI(root) {
         `density ${formatNumber(music.density)} | brightness ${formatNumber(music.brightness)} | ` +
         `tension ${formatNumber(music.tension)} | rhythm ${formatNumber(music.rhythm)} | ` +
         `width ${formatNumber(music.width)} | genre ${music.genre ?? 'adaptive'} | ` +
-        `bpm ${music.bpm ?? '--'} | event ${music.event ?? 'none'}${gestureControlText}`;
+        `bpm ${music.bpm ?? '--'} | event ${music.event ?? 'none'}${promptMode}${gestureControlText}`;
     }
 
     if (backendMrt2Summary) {
@@ -368,6 +375,52 @@ export function createUI(root) {
     toggleBackendDebug.addEventListener('click', backendDebugToggleHandler);
   }
 
+  function getManualPromptText() {
+    return manualPromptInput?.value.trim() ?? '';
+  }
+
+  function setManualPromptStatus(prompt) {
+    if (manualPromptStatus) {
+      manualPromptStatus.textContent = prompt ? 'manual prompt active' : 'movement prompt';
+    }
+    if (manualPromptInput && prompt !== undefined) {
+      manualPromptInput.value = prompt;
+    }
+  }
+
+  function onManualPromptSubmit(handler) {
+    if (!sendManualPrompt) {
+      return;
+    }
+
+    if (manualPromptSubmitHandler) {
+      sendManualPrompt.removeEventListener('click', manualPromptSubmitHandler);
+    }
+
+    manualPromptSubmitHandler = () => {
+      handler(getManualPromptText());
+    };
+    sendManualPrompt.addEventListener('click', manualPromptSubmitHandler);
+  }
+
+  function onManualPromptClear(handler) {
+    if (!clearManualPrompt) {
+      return;
+    }
+
+    if (manualPromptClearHandler) {
+      clearManualPrompt.removeEventListener('click', manualPromptClearHandler);
+    }
+
+    manualPromptClearHandler = () => {
+      if (manualPromptInput) {
+        manualPromptInput.value = '';
+      }
+      handler('');
+    };
+    clearManualPrompt.addEventListener('click', manualPromptClearHandler);
+  }
+
   function onRetry(handler) {
     if (!retryCameraBtn) {
       return;
@@ -396,6 +449,9 @@ export function createUI(root) {
     updateBackendDebug,
     setBackendDebugEnabled,
     onBackendDebugToggle,
+    setManualPromptStatus,
+    onManualPromptSubmit,
+    onManualPromptClear,
     showError,
     onRetry,
   };

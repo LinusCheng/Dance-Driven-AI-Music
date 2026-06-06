@@ -86,6 +86,8 @@ Use verbose mode only when you need full payloads and detailed audio-engine diag
 python main.py --verbose
 ```
 
+The frontend also includes a prompt box in the Backend stream panel. Sending text there overrides the generated Magenta style prompt until you clear it. Movement features still control the numeric generation values such as density, drums, brightness, tension, and harmony width.
+
 Run in forced mock mode:
 
 ```bash

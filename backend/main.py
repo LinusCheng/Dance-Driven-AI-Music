@@ -104,6 +104,7 @@ def build_debug_payload(dance_state: dict[str, Any], music_state: dict[str, Any]
             'event': music_state.get('gestureEvent', 'none'),
             'genre': music_state.get('genre', 'adaptive'),
             'bpm': music_state.get('bpm'),
+            'manualPrompt': music_state.get('manualPrompt', ''),
             'gestureSequence': music_state.get('gestureSequence'),
         },
         'mrt2': engine_state,
@@ -129,6 +130,7 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
     client_address = websocket.remote_address
     backend_debug_enabled = False
     last_debug_send_ts = 0.0
+    manual_prompt = ''
     logger.info('Frontend connected: %s', client_address)
 
     try:
@@ -152,6 +154,24 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
                 }))
                 continue
 
+            if isinstance(payload, dict) and payload.get('type') == 'setManualPrompt':
+                manual_prompt = str(payload.get('prompt') or '').strip()[:280]
+                if latest_music_state:
+                    latest_music_state['manualPrompt'] = manual_prompt
+                    if manual_prompt:
+                        latest_music_state['promptHints'] = [manual_prompt]
+                    if magenta_engine is not None:
+                        if hasattr(magenta_engine, 'last_update_ts'):
+                            magenta_engine.last_update_ts = 0.0
+                        magenta_engine.update_music_state(latest_music_state)
+                await websocket.send(json.dumps({
+                    'type': 'manualPromptStatus',
+                    'prompt': manual_prompt,
+                    'enabled': bool(manual_prompt),
+                }))
+                logger.info('Manual Magenta prompt %s', 'set' if manual_prompt else 'cleared')
+                continue
+
             try:
                 dance_state = validate_and_normalize(payload)
             except ValueError as error:
@@ -160,6 +180,7 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
 
             smoothed = smoother.smooth_state(dance_state)
             style_state = gesture_sequence_detector.update(smoothed)
+            style_state['manualPrompt'] = manual_prompt
             music_state = dance_to_music_state(smoothed, style_state)
 
             latest_dance_state.update(smoothed)
