@@ -335,6 +335,24 @@ class MRT2RealtimeEngine:
 
         logger.debug('MRT2RealtimeEngine: prompt updated: %s', self._prompt)
 
+    def get_debug_state(self) -> Dict[str, Any]:
+        return {
+            'prompt': self._prompt,
+            'controls': {
+                'cfgMusicCoca': round(float(self._target_controls.get('cfg_musiccoca', 0.0)), 3),
+                'cfgNotes': round(float(self._target_controls.get('cfg_notes', 0.0)), 3),
+                'cfgDrums': round(float(self._target_controls.get('cfg_drums', 0.0)), 3),
+                'temperature': round(float(self._target_controls.get('temperature', 0.0)), 3),
+                'topK': int(self._target_controls.get('top_k', 0)),
+            },
+            'audio': {
+                'bufferSeconds': round(self._current_buffer_seconds(), 2),
+                'underruns': self._underrun_count,
+                'running': self._running,
+                'modelReady': self._model_ready.is_set(),
+            },
+        }
+
     def shutdown(self) -> None:
         logger.info('MRT2RealtimeEngine: shutting down')
         self._running = False

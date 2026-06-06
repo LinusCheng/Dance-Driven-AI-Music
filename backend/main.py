@@ -72,8 +72,56 @@ def log_feature_summary(dance_state: dict[str, Any], music_state: dict[str, Any]
     )
 
 
+def build_debug_payload(dance_state: dict[str, Any], music_state: dict[str, Any]) -> dict[str, Any]:
+    engine_state = {}
+    if magenta_engine is not None and hasattr(magenta_engine, 'get_debug_state'):
+        try:
+            engine_state = magenta_engine.get_debug_state()
+        except Exception as error:
+            logger.debug('Unable to read music engine debug state: %s', error)
+
+    return {
+        'type': 'backendDebug',
+        'features': {
+            'rawEnergy': round(float(dance_state.get('energy', 0.0)), 2),
+            'openness': round(float(dance_state.get('openness', 0.0)), 2),
+            'rotation': round(float(dance_state.get('rotation', 0.0)), 2),
+            'smile': round(float(dance_state.get('smile', 0.0)), 2),
+            'mouthOpen': round(float(dance_state.get('mouthOpen', 0.0)), 2),
+            'arms': f"{dance_state.get('leftArmHeight', 'LOW')}/{dance_state.get('rightArmHeight', 'LOW')}",
+            'gestures': f"{dance_state.get('gestureLeft', 'none')}/{dance_state.get('gestureRight', 'none')}",
+        },
+        'music': {
+            'density': round(float(music_state.get('density', 0.0)), 2),
+            'brightness': round(float(music_state.get('brightness', 0.0)), 2),
+            'tension': round(float(music_state.get('tension', 0.0)), 2),
+            'rhythm': round(float(music_state.get('rhythmicActivity', 0.0)), 2),
+            'width': round(float(music_state.get('harmonyWidth', 0.0)), 2),
+            'event': music_state.get('gestureEvent', 'none'),
+        },
+        'mrt2': engine_state,
+    }
+
+
+async def maybe_send_debug_payload(
+    websocket: websockets.WebSocketServerProtocol,
+    dance_state: dict[str, Any],
+    music_state: dict[str, Any],
+    last_sent_ts: float,
+    interval_seconds: float = 1.0,
+) -> float:
+    now = time.monotonic()
+    if now - last_sent_ts < interval_seconds:
+        return last_sent_ts
+
+    await websocket.send(json.dumps(build_debug_payload(dance_state, music_state)))
+    return now
+
+
 async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> None:
     client_address = websocket.remote_address
+    backend_debug_enabled = False
+    last_debug_send_ts = 0.0
     logger.info('Frontend connected: %s', client_address)
 
     try:
@@ -86,6 +134,15 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
                 payload = json.loads(raw_message)
             except json.JSONDecodeError as error:
                 logger.warning('Malformed JSON received: %s', error)
+                continue
+
+            if isinstance(payload, dict) and payload.get('type') == 'setBackendDebug':
+                backend_debug_enabled = bool(payload.get('enabled'))
+                last_debug_send_ts = 0.0
+                await websocket.send(json.dumps({
+                    'type': 'backendDebugStatus',
+                    'enabled': backend_debug_enabled,
+                }))
                 continue
 
             try:
@@ -105,6 +162,13 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
             logger.debug('musicState %s', music_state)
             if magenta_engine is not None:
                 magenta_engine.update_music_state(music_state)
+            if backend_debug_enabled:
+                last_debug_send_ts = await maybe_send_debug_payload(
+                    websocket,
+                    smoothed,
+                    music_state,
+                    last_debug_send_ts,
+                )
 
     except websockets.ConnectionClosedOK:
         logger.info('Frontend disconnected cleanly: %s', client_address)

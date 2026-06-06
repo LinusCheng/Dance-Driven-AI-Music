@@ -930,9 +930,100 @@ body {
   color: #bfeeff;
 }
 
+.backend-debug-panel {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(35, 43, 56, 0.95), rgba(20, 26, 36, 0.94));
+  box-shadow: var(--shadow);
+  padding: 12px;
+  min-height: 128px;
+}
+
+.backend-debug-panel h2,
+.backend-debug-block h3 {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.backend-debug-panel h2 {
+  font-size: 0.98rem;
+  color: #bfeeff;
+}
+
+.backend-debug-age {
+  color: var(--muted);
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 0.76rem;
+}
+
+.backend-debug-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.backend-debug-toggle {
+  border: 1px solid var(--line);
+  background: rgba(52, 217, 195, 0.08);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.backend-debug-toggle:hover {
+  filter: brightness(1.12);
+}
+
+.backend-debug-toggle.active {
+  color: #a8ffd7;
+  border-color: #a8ffd7;
+  background: rgba(168, 255, 215, 0.14);
+}
+
+.backend-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.backend-debug-block {
+  min-width: 0;
+  border: 1px solid rgba(157, 176, 201, 0.16);
+  border-radius: 10px;
+  background: rgba(18, 21, 26, 0.58);
+  padding: 10px;
+  overflow: hidden;
+}
+
+.backend-debug-block h3 {
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-bottom: 6px;
+}
+
+.backend-debug-wide {
+  grid-column: 1 / -1;
+}
+
+.backend-debug-line {
+  color: var(--text);
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .bottom-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.85fr);
   gap: 14px;
   align-items: start;
 }
@@ -1012,5 +1103,13 @@ body {
 
   #eventLog {
     max-height: 120px;
+  }
+
+  .backend-debug-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .backend-debug-wide {
+    grid-column: auto;
   }
 }

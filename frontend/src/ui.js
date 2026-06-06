@@ -18,12 +18,22 @@ function clamp01(value) {
   return Math.max(0, Math.min(1, value));
 }
 
+function formatNumber(value, digits = 2) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : '--';
+}
+
 export function createUI(root) {
   const statusText = root.getElementById('statusText');
   const fpsValue = root.getElementById('fpsValue');
   const stageMessage = root.getElementById('stageMessage');
   const retryCameraBtn = root.getElementById('retryCameraBtn');
   const backendStatus = root.getElementById('backendStatus');
+  const backendDebugAge = root.getElementById('backendDebugAge');
+  const toggleBackendDebug = root.getElementById('toggleBackendDebug');
+  const backendFeatureSummary = root.getElementById('backendFeatureSummary');
+  const backendMusicSummary = root.getElementById('backendMusicSummary');
+  const backendMrt2Summary = root.getElementById('backendMrt2Summary');
 
   const energyValue = root.getElementById('energyValue');
   const opennessValue = root.getElementById('opennessValue');
@@ -66,6 +76,7 @@ export function createUI(root) {
   const dbgRightAnkle = root.getElementById('dbgRightAnkle');
 
   let retryHandler = null;
+  let backendDebugToggleHandler = null;
 
   let previous = {
     leftArmHeight: 'LOW',
@@ -274,6 +285,81 @@ export function createUI(root) {
     backendStatus.classList.toggle('disconnected', !connected);
   }
 
+  function updateBackendDebug(debugState) {
+    const features = debugState?.features ?? {};
+    const music = debugState?.music ?? {};
+    const mrt2 = debugState?.mrt2 ?? {};
+    const controls = mrt2.controls ?? {};
+    const audio = mrt2.audio ?? {};
+
+    if (backendDebugAge) {
+      backendDebugAge.textContent = new Date().toLocaleTimeString();
+    }
+
+    if (backendFeatureSummary) {
+      backendFeatureSummary.textContent =
+        `rawEnergy ${formatNumber(features.rawEnergy)} | openness ${formatNumber(features.openness)} | ` +
+        `rotation ${formatNumber(features.rotation)} | smile ${formatNumber(features.smile)} | ` +
+        `mouth ${formatNumber(features.mouthOpen)} | arms ${features.arms ?? '--'} | gestures ${features.gestures ?? '--'}`;
+    }
+
+    if (backendMusicSummary) {
+      backendMusicSummary.textContent =
+        `density ${formatNumber(music.density)} | brightness ${formatNumber(music.brightness)} | ` +
+        `tension ${formatNumber(music.tension)} | rhythm ${formatNumber(music.rhythm)} | ` +
+        `width ${formatNumber(music.width)} | event ${music.event ?? 'none'}`;
+    }
+
+    if (backendMrt2Summary) {
+      const prompt = mrt2.prompt ? `"${mrt2.prompt}"` : 'no prompt yet';
+      const buffer = audio.bufferSeconds == null ? '--' : `${formatNumber(audio.bufferSeconds)}s`;
+      const underruns = audio.underruns ?? '--';
+      const ready = audio.modelReady ? 'ready' : 'warming';
+      backendMrt2Summary.textContent =
+        `${prompt} | notes ${formatNumber(controls.cfgNotes)} | drums ${formatNumber(controls.cfgDrums)} | ` +
+        `temp ${formatNumber(controls.temperature)} | topK ${controls.topK ?? '--'} | ` +
+        `buffer ${buffer} | underruns ${underruns} | ${ready}`;
+    }
+  }
+
+  function setBackendDebugEnabled(enabled) {
+    if (toggleBackendDebug) {
+      toggleBackendDebug.textContent = enabled ? 'Hide stream' : 'Show stream';
+      toggleBackendDebug.setAttribute('aria-pressed', String(enabled));
+      toggleBackendDebug.classList.toggle('active', enabled);
+    }
+
+    if (!enabled) {
+      if (backendDebugAge) {
+        backendDebugAge.textContent = 'off';
+      }
+      if (backendFeatureSummary) {
+        backendFeatureSummary.textContent = 'Backend stream is off';
+      }
+      if (backendMusicSummary) {
+        backendMusicSummary.textContent = 'Turn on stream to inspect mapping';
+      }
+      if (backendMrt2Summary) {
+        backendMrt2Summary.textContent = 'Turn on stream to inspect Magenta controls';
+      }
+    } else if (backendDebugAge) {
+      backendDebugAge.textContent = 'waiting';
+    }
+  }
+
+  function onBackendDebugToggle(handler) {
+    if (!toggleBackendDebug) {
+      return;
+    }
+
+    if (backendDebugToggleHandler) {
+      toggleBackendDebug.removeEventListener('click', backendDebugToggleHandler);
+    }
+
+    backendDebugToggleHandler = handler;
+    toggleBackendDebug.addEventListener('click', backendDebugToggleHandler);
+  }
+
   function onRetry(handler) {
     if (!retryCameraBtn) {
       return;
@@ -299,6 +385,9 @@ export function createUI(root) {
     update,
     setStatus,
     setBackendStatus,
+    updateBackendDebug,
+    setBackendDebugEnabled,
+    onBackendDebugToggle,
     showError,
     onRetry,
   };

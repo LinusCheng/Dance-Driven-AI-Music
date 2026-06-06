@@ -128,6 +128,33 @@ document.querySelector('#app').innerHTML = `
     </main>
 
     <section class="bottom-grid">
+      <section class="backend-debug-panel">
+        <div class="section-head">
+          <h2>Backend stream</h2>
+          <div class="backend-debug-actions">
+            <span id="backendDebugAge" class="backend-debug-age">off</span>
+            <button id="toggleBackendDebug" class="backend-debug-toggle" type="button" aria-pressed="false">Show stream</button>
+          </div>
+        </div>
+
+        <div class="backend-debug-grid">
+          <section class="backend-debug-block">
+            <h3>Features</h3>
+            <div id="backendFeatureSummary" class="backend-debug-line">No backend data yet</div>
+          </section>
+
+          <section class="backend-debug-block">
+            <h3>Music</h3>
+            <div id="backendMusicSummary" class="backend-debug-line">No mapping yet</div>
+          </section>
+
+          <section class="backend-debug-block backend-debug-wide">
+            <h3>Magenta</h3>
+            <div id="backendMrt2Summary" class="backend-debug-line">Waiting for MRT2 status</div>
+          </section>
+        </div>
+      </section>
+
       <section class="event-panel">
         <h2>Event log</h2>
         <ul id="eventLog"></ul>
@@ -157,6 +184,9 @@ const canvasElement = document.getElementById('overlay');
 
 const ui = createUI(document);
 const backendClient = createBackendClient(ui);
+ui.onBackendDebugToggle(() => {
+  backendClient.toggleBackendDebug();
+});
 const metricsCalculator = createMetricsCalculator();
 const poseDrawer = createPoseDrawer(canvasElement);
 const cameraSelect = document.getElementById('cameraSelect');

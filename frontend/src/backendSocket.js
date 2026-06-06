@@ -7,6 +7,7 @@ export function createBackendClient(ui) {
   let reconnectTimer = null;
   let sendTimer = null;
   let latestMovementData = null;
+  let backendDebugEnabled = false;
   let manualClose = false;
 
   function setStatus(text, connected = false) {
@@ -52,10 +53,25 @@ export function createBackendClient(ui) {
 
     socket.onopen = () => {
       setStatus('backend connected', true);
+      sendBackendDebugPreference();
       console.info('Backend WebSocket connected.');
     };
 
     socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message?.type === 'backendDebug') {
+          ui?.updateBackendDebug?.(message);
+          return;
+        }
+        if (message?.type === 'backendDebugStatus') {
+          ui?.setBackendDebugEnabled?.(Boolean(message.enabled));
+          return;
+        }
+      } catch {
+        // Ignore non-JSON backend messages; terminal logs stay out of the UI.
+      }
+
       console.debug('Backend emitted:', event.data);
     };
 
@@ -84,6 +100,27 @@ export function createBackendClient(ui) {
     } catch (error) {
       console.warn('Failed to send backend payload:', error);
     }
+  }
+
+  function sendBackendDebugPreference() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({
+      type: 'setBackendDebug',
+      enabled: backendDebugEnabled,
+    }));
+  }
+
+  function setBackendDebugEnabled(enabled) {
+    backendDebugEnabled = Boolean(enabled);
+    ui?.setBackendDebugEnabled?.(backendDebugEnabled);
+    sendBackendDebugPreference();
+  }
+
+  function toggleBackendDebug() {
+    setBackendDebugEnabled(!backendDebugEnabled);
   }
 
   function startSendLoop() {
@@ -115,9 +152,12 @@ export function createBackendClient(ui) {
 
   connect();
   startSendLoop();
+  ui?.setBackendDebugEnabled?.(backendDebugEnabled);
 
   return {
     updateMovementData,
+    toggleBackendDebug,
+    setBackendDebugEnabled,
     dispose,
   };
 }
