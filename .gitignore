@@ -1,18 +1,18 @@
 # Dependencies
-legacy/frontend/node_modules/
-legacy/frontend/package-lock.json
+frontend/node_modules/
+frontend/package-lock.json
 
 # Build output
-legacy/frontend/dist/
+frontend/dist/
 
 # Runtime logs
 *.log
-legacy/RealTimeHub/log/
-legacy/SunoHub/downloads/
-legacy/SunoHub/jobs/
-legacy/SunoHub/loops/
-legacy/SunoHub/.venv/
-legacy/RealTimeHub/.venv/
+RealTimeHub/log/
+SunoHub/downloads/
+SunoHub/jobs/
+SunoHub/loops/
+SunoHub/.venv/
+RealTimeHub/.venv/
 
 # Python generated files
 __pycache__/
@@ -20,7 +20,7 @@ __pycache__/
 
 # Local secrets
 .env
-legacy/SunoHub/.env
+SunoHub/.env
 
 # macOS
 .DS_Store
@@ -28,5 +28,5 @@ legacy/SunoHub/.env
 # Hidden files
 .*
 !.gitignore
-!legacy/SunoHub/.gitignore
-!legacy/SunoHub/.env.example
+!SunoHub/.gitignore
+!SunoHub/.env.example
