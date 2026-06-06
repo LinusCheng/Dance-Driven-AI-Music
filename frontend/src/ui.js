@@ -349,7 +349,7 @@ export function createUI(root) {
         backendDebugAge.textContent = 'off';
       }
       if (backendFeatureSummary) {
-        backendFeatureSummary.textContent = 'Backend stream is off';
+        backendFeatureSummary.textContent = 'RealTimeHub stream is off';
       }
       if (backendMusicSummary) {
         backendMusicSummary.textContent = 'Turn on stream to inspect mapping';

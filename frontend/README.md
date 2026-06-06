@@ -42,13 +42,13 @@ npm install
 npm start
 ```
 
-## Running with the backend
+## Running with RealTimeHub
 
-By default the frontend connects to a backend WebSocket at `ws://localhost:8765`.
+By default the frontend connects to the RealTimeHub WebSocket at `ws://localhost:8765`.
 
-To develop with real-time music, start the backend first (see `../backend/README.md`) and then run `npm start` in this folder.
+To develop with real-time music, start RealTimeHub first (see `../RealTimeHub/README.md`) and then run `npm start` in this folder.
 
-If you want to use the frontend standalone for UI development, open `index.html` in a browser, but the music features require the backend.
+If you want to use the frontend standalone for UI development, open `index.html` in a browser, but the music features require RealTimeHub.
 
 ## Offline / network requirements
 

@@ -1,6 +1,6 @@
 # Magenta RealTime 2 Setup
 
-This backend uses `magenta-rt[mlx]` to interface with Magenta RealTime 2.
+RealTimeHub uses `magenta-rt[mlx]` to interface with Magenta RealTime 2.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ This backend uses `magenta-rt[mlx]` to interface with Magenta RealTime 2.
 1. Create and activate a virtual environment:
 
 ```bash
-cd backend
+cd RealTimeHub
 python3 -m venv .venv
 source .venv/bin/activate
 ```
@@ -56,16 +56,16 @@ export MAGENTA_HOME="$HOME/Documents/Magenta"
 Run the local MRT2 test script:
 
 ```bash
-cd backend
+cd RealTimeHub
 source .venv/bin/activate
 python test_mrt2.py
 ```
 
 A successful run should create `~/Documents/Magenta/magenta-rt-v2/outputs/test_mrt2.wav`.
 
-## Backend integration test
+## RealTimeHub integration test
 
-Run the backend in Magenta test mode:
+Run RealTimeHub in Magenta test mode:
 
 ```bash
 python main.py --test-magenta
@@ -77,7 +77,7 @@ This will instantiate the available MRT2 runtime and generate a short test snipp
 
 * If `magenta_rt` fails to import, make sure the virtual environment is activated and the package is installed.
 * If the model directory is not found, verify that `~/Documents/Magenta/magenta-rt-v2/models/mrt2_base` exists.
-* If you need to override the Magenta root, use `MAGENTA_HOME` before starting the backend.
+* If you need to override the Magenta root, use `MAGENTA_HOME` before starting RealTimeHub.
 
 ## Notes
 

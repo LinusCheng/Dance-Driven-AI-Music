@@ -33,7 +33,7 @@ export function createBackendClient(ui) {
       return;
     }
 
-    setStatus('backend disconnected', false);
+    setStatus('RealTimeHub disconnected', false);
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       connect();
@@ -44,7 +44,7 @@ export function createBackendClient(ui) {
     cleanupSocket();
 
     try {
-      setStatus('backend connecting...', false);
+      setStatus('RealTimeHub connecting...', false);
       socket = new WebSocket(BACKEND_URL);
     } catch (error) {
       console.warn('WebSocket connect failed', error);
@@ -53,10 +53,10 @@ export function createBackendClient(ui) {
     }
 
     socket.onopen = () => {
-      setStatus('backend connected', true);
+      setStatus('RealTimeHub connected', true);
       sendBackendDebugPreference();
       sendManualPrompt();
-      console.info('Backend WebSocket connected.');
+      console.info('RealTimeHub WebSocket connected.');
     };
 
     socket.onmessage = (event) => {
@@ -79,16 +79,16 @@ export function createBackendClient(ui) {
         // Ignore non-JSON backend messages; terminal logs stay out of the UI.
       }
 
-      console.debug('Backend emitted:', event.data);
+      console.debug('RealTimeHub emitted:', event.data);
     };
 
     socket.onerror = () => {
-      console.warn('Backend WebSocket error.');
+      console.warn('RealTimeHub WebSocket error.');
       scheduleReconnect();
     };
 
     socket.onclose = () => {
-      console.info('Backend WebSocket closed.');
+      console.info('RealTimeHub WebSocket closed.');
       scheduleReconnect();
     };
   }

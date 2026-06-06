@@ -23,7 +23,7 @@ document.querySelector('#app').innerHTML = `
           <button id="retryCameraBtn" class="retry-btn" type="button">Retry Camera</button>
         </div>
         <div class="fps-chip">FPS <span id="fpsValue">0</span></div>
-        <div id="backendStatus" class="backend-status disconnected">backend disconnected</div>
+        <div id="backendStatus" class="backend-status disconnected">RealTimeHub disconnected</div>
       </div>
     </header>
 
@@ -142,7 +142,7 @@ document.querySelector('#app').innerHTML = `
     <section class="bottom-grid">
       <section class="backend-debug-panel">
         <div class="section-head">
-          <h2>Backend stream</h2>
+          <h2>RealTimeHub stream</h2>
           <div class="backend-debug-actions">
             <span id="backendDebugAge" class="backend-debug-age">off</span>
             <button id="toggleBackendDebug" class="backend-debug-toggle" type="button" aria-pressed="false">Show stream</button>

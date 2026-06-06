@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger('backend.magenta')
+logger = logging.getLogger('RealTimeHub.magenta')
 
 
 class MagentaController:

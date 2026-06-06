@@ -1,8 +1,8 @@
-# Dance-Driven AI Music Backend
+# Dance-Driven AI Music RealTimeHub
 
 A local Python control hub that receives real-time movement data from the frontend, transforms it into a higher-level dance state and music state, and distributes those signals to music generation systems such as Magenta RealTime 2, Max/MSP, TouchDesigner, or future audio engines.
 
-The backend acts as the central intelligence layer between motion tracking and music generation.
+RealTimeHub acts as the central intelligence layer between motion tracking and music generation.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ Frontend (MediaPipe)
         ↓
    WebSocket
         ↓
-     Backend
+   RealTimeHub
         ↓
     Music State
         ↓
@@ -31,10 +31,10 @@ Recommended environment:
 * Apple Silicon Mac
 * Python 3.12+
 
-From the project root, enter the backend folder:
+From the project root, enter the RealTimeHub folder:
 
 ```bash
-cd backend
+cd RealTimeHub
 ```
 
 Create and activate a virtual environment:
@@ -50,7 +50,7 @@ Install dependencies once:
 pip install -r requirements.txt
 ```
 
-After setup, start the backend from the same `backend` folder:
+After setup, start RealTimeHub from the same `RealTimeHub` folder:
 
 ```bash
 python main.py
@@ -61,20 +61,20 @@ python main.py
 For normal development, use:
 
 ```bash
-cd backend
+cd RealTimeHub
 source .venv/bin/activate
 python main.py
 ```
 
-The backend starts a WebSocket server on:
+RealTimeHub starts a WebSocket server on:
 
 ```text
 ws://localhost:8765
 ```
 
-Backend logs print to the terminal. They are not written to a log file unless you manually redirect output.
+RealTimeHub logs print to the terminal. They are not written to a log file unless you manually redirect output.
 
-Default logs are intentionally concise. When the frontend is connected, the backend prints a compact feature summary about once per second:
+Default logs are intentionally concise. When the frontend is connected, RealTimeHub prints a compact feature summary about once per second:
 
 ```text
 features energy=0.42 openness=0.58 rotation=-0.11 smile=0.22 mouth=0.04 arms=MID/HIGH gestures=none/fist -> music density=0.47 brightness=0.61 tension=0.10 event=right_fist
@@ -86,7 +86,7 @@ Use verbose mode only when you need full payloads and detailed audio-engine diag
 python main.py --verbose
 ```
 
-The frontend also includes a prompt box in the Backend stream panel. Sending text there overrides the generated Magenta style prompt until you clear it. Movement features still control the numeric generation values such as density, drums, brightness, tension, and harmony width.
+The frontend also includes a prompt box in the RealTimeHub stream panel. Sending text there overrides the generated Magenta style prompt until you clear it. Movement features still control the numeric generation values such as density, drums, brightness, tension, and harmony width.
 
 Run in forced mock mode:
 
@@ -94,7 +94,7 @@ Run in forced mock mode:
 python main.py --mock-magenta
 ```
 
-Run a short Magenta integration test using the backend's MRT2 wrapper:
+Run a short Magenta integration test using RealTimeHub's MRT2 wrapper:
 
 ```bash
 python main.py --test-magenta
@@ -108,7 +108,7 @@ To enable the realtime streaming engine (streams directly to mac speakers via `s
 python main.py --engine mrt2
 ```
 
-If you experience audio issues on macOS, see `backend/MAGENTA_SETUP.md` for device selection and troubleshooting notes.
+If you experience audio issues on macOS, see `RealTimeHub/MAGENTA_SETUP.md` for device selection and troubleshooting notes.
 
 For a direct MRT2 runtime validation script, use:
 
@@ -118,7 +118,7 @@ python test_mrt2.py
 
 ## Responsibilities
 
-The backend is responsible for:
+RealTimeHub is responsible for:
 
 * Receiving dance state updates from the frontend
 * Validating and normalizing incoming data
@@ -129,7 +129,7 @@ The backend is responsible for:
 * Broadcasting future OSC outputs
 * Maintaining stable real-time control signals
 
-The backend is intentionally designed to be independent of any specific music engine.
+RealTimeHub is intentionally designed to be independent of any specific music engine.
 
 ## Incoming Dance State
 
@@ -188,7 +188,7 @@ These mappings are expected to evolve throughout development and experimentation
 
 ## Gesture Sequence Controls
 
-The backend includes an experimental three-gesture sequence detector. A gesture must be stable briefly before it is accepted, and controls have cooldowns so the style does not flicker.
+RealTimeHub includes an experimental three-gesture sequence detector. A gesture must be stable briefly before it is accepted, and controls have cooldowns so the style does not flicker.
 
 You only need to remember one genre sequence and two two-hand BPM controls:
 
@@ -204,7 +204,7 @@ The genre cycle currently includes house, disco/funk, techno, ambient, cinematic
 
 Magenta integration is currently experimental.
 
-The backend attempts to load Magenta RT2 when available and falls back to mock mode if:
+RealTimeHub attempts to load Magenta RT2 when available and falls back to mock mode if:
 
 * Magenta is not installed
 * Models are missing
@@ -230,13 +230,13 @@ Planned integrations include:
 * Frontend sends updates every 250ms
 * Music engine updates are throttled to avoid instability
 * Numeric features are smoothed before conversion
-* The backend is designed as a reusable real-time control layer
+* RealTimeHub is designed as a reusable real-time control layer
 * Movement tracking and music generation remain decoupled
 * The architecture supports swapping music engines without changing the frontend
 
 ## Current Status
 
-✅ Frontend → Backend WebSocket communication
+✅ Frontend → RealTimeHub WebSocket communication
 
 ✅ Dance State generation
 

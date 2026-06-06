@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import sounddevice as sd
 
-logger = logging.getLogger('backend.mrt2_realtime')
+logger = logging.getLogger('RealTimeHub.mrt2_realtime')
 
 # helper: list available audio devices
 def log_audio_devices():

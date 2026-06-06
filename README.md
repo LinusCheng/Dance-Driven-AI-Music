@@ -1,15 +1,15 @@
 # Dance-Driven AI Music
 
-Combined frontend and backend for a real-time dance-driven AI music system.
+Combined frontend and RealTimeHub service for a real-time dance-driven AI music system.
 
 Quick overview
-- Frontend: browser-based MediaPipe tracking + UI that streams dance state to the backend via WebSocket.
-- Backend: Python service that converts dance state → music state and drives music engines (Magenta RT2 realtime streaming included).
+- Frontend: browser-based MediaPipe tracking + UI that streams dance state to RealTimeHub via WebSocket.
+- RealTimeHub: Python service that converts dance state → music state and drives music engines (Magenta RT2 realtime streaming included).
 
 Quick start (dev)
-1. Start backend (from project root):
+1. Start RealTimeHub (from project root):
 ```bash
-cd backend
+cd RealTimeHub
 source .venv/bin/activate
 python main.py --engine mrt2
 ```
@@ -22,10 +22,10 @@ npm start
 ```
 
 Notes
-- The backend WebSocket is ws://localhost:8765 by default.
+- The RealTimeHub WebSocket is ws://localhost:8765 by default.
 - Use `python main.py --engine mrt2` to enable realtime MRT2 streaming (streams to mac speakers).
-- If Magenta is not installed or the model is missing, the backend can run in mock/batch mode; see `backend/README.md` for details.
+- If Magenta is not installed or the model is missing, RealTimeHub can run in mock/batch mode; see `RealTimeHub/README.md` for details.
 
 Where to look next
-- Backend docs and troubleshooting: backend/README.md and backend/MAGENTA_SETUP.md
+- RealTimeHub docs and troubleshooting: RealTimeHub/README.md and RealTimeHub/MAGENTA_SETUP.md
 - Frontend usage and dev: frontend/README.md
