@@ -1,12 +1,44 @@
 import { FaceLandmarker, FilesetResolver, HandLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision';
 
-const WASM_ROOT = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
-const MODEL_ASSET_PATH =
-  'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
-const FACE_MODEL_ASSET_PATH =
-  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-const HAND_MODEL_ASSET_PATH =
-  'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+const LOCAL_WASM_ROOT = '/mediapipe/wasm';
+const REMOTE_WASM_ROOT = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
+
+const LOCAL_MODEL_ROOT = '/models';
+const REMOTE_MODEL_ROOT = 'https://storage.googleapis.com/mediapipe-models';
+
+const MODEL_ASSET_FILES = {
+  pose: 'pose_landmarker_lite.task',
+  face: 'face_landmarker.task',
+  hand: 'hand_landmarker.task',
+};
+
+const MODEL_ASSET_PATHS = {
+  pose: `${REMOTE_MODEL_ROOT}/pose_landmarker/pose_landmarker_lite/float16/latest/${MODEL_ASSET_FILES.pose}`,
+  face: `${REMOTE_MODEL_ROOT}/face_landmarker/face_landmarker/float16/1/${MODEL_ASSET_FILES.face}`,
+  hand: `${REMOTE_MODEL_ROOT}/hand_landmarker/hand_landmarker/float16/1/${MODEL_ASSET_FILES.hand}`,
+};
+
+const LOCAL_MODEL_PATHS = {
+  pose: `${LOCAL_MODEL_ROOT}/${MODEL_ASSET_FILES.pose}`,
+  face: `${LOCAL_MODEL_ROOT}/${MODEL_ASSET_FILES.face}`,
+  hand: `${LOCAL_MODEL_ROOT}/${MODEL_ASSET_FILES.hand}`,
+};
+
+async function urlExists(url) {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveAssetUrl(localUrl, remoteUrl) {
+  if (await urlExists(localUrl)) {
+    return localUrl;
+  }
+  return remoteUrl;
+}
 
 export async function listCameraDevices() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
@@ -123,11 +155,11 @@ async function createTaskWithFallback({ onStatus, label, createWithDelegate }) {
   }
 }
 
-async function createPoseLandmarker(vision, onStatus) {
+async function createPoseLandmarker(vision, onStatus, modelAssetPath) {
   const createWithDelegate = (delegate) =>
     PoseLandmarker.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath: MODEL_ASSET_PATH,
+        modelAssetPath,
         delegate,
       },
       runningMode: 'VIDEO',
@@ -144,11 +176,11 @@ async function createPoseLandmarker(vision, onStatus) {
   });
 }
 
-async function createFaceLandmarker(vision, onStatus) {
+async function createFaceLandmarker(vision, onStatus, modelAssetPath) {
   const createWithDelegate = (delegate) =>
     FaceLandmarker.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath: FACE_MODEL_ASSET_PATH,
+        modelAssetPath,
         delegate,
       },
       runningMode: 'VIDEO',
@@ -166,11 +198,11 @@ async function createFaceLandmarker(vision, onStatus) {
   });
 }
 
-async function createHandLandmarker(vision, onStatus) {
+async function createHandLandmarker(vision, onStatus, modelAssetPath) {
   const createWithDelegate = (delegate) =>
     HandLandmarker.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath: HAND_MODEL_ASSET_PATH,
+        modelAssetPath,
         delegate,
       },
       runningMode: 'VIDEO',
@@ -292,18 +324,27 @@ export async function createPoseTracker({ videoElement, onFrame, onStatus, onErr
       }
 
       try {
-        onStatus('Requesting webcam permission...');
+          onStatus('Requesting webcam permission...');
         stream = await setupCamera(videoElement, cameraDeviceId);
-        const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
+
+        const wasmRoot = (await urlExists(`${LOCAL_WASM_ROOT}/vision_wasm_internal.js`))
+          ? LOCAL_WASM_ROOT
+          : REMOTE_WASM_ROOT;
+
+        const vision = await FilesetResolver.forVisionTasks(wasmRoot);
+
+        const poseModelUrl = await resolveAssetUrl(LOCAL_MODEL_PATHS.pose, MODEL_ASSET_PATHS.pose);
+        const faceModelUrl = await resolveAssetUrl(LOCAL_MODEL_PATHS.face, MODEL_ASSET_PATHS.face);
+        const handModelUrl = await resolveAssetUrl(LOCAL_MODEL_PATHS.hand, MODEL_ASSET_PATHS.hand);
 
         onStatus('Loading Pose Landmarker model...');
-        poseLandmarker = await createPoseLandmarker(vision, onStatus);
+        poseLandmarker = await createPoseLandmarker(vision, onStatus, poseModelUrl);
 
         onStatus('Loading Face Landmarker model...');
-        faceLandmarker = await createFaceLandmarker(vision, onStatus);
+        faceLandmarker = await createFaceLandmarker(vision, onStatus, faceModelUrl);
 
         onStatus('Loading Hand Landmarker model...');
-        handLandmarker = await createHandLandmarker(vision, onStatus);
+        handLandmarker = await createHandLandmarker(vision, onStatus, handModelUrl);
 
         running = true;
         onStatus('Tracking live pose, face, and hands.');

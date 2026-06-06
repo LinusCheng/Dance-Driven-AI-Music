@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "copy-mediapipe-assets": "mkdir -p public/mediapipe/wasm && cp -R node_modules/@mediapipe/tasks-vision/wasm/* public/mediapipe/wasm/",
+    "download-mediapipe-models": "node scripts/download-mediapipe-models.js",
+    "prepare-offline": "npm run copy-mediapipe-assets && npm run download-mediapipe-models"
   },
   "devDependencies": {
     "vite": "^8.0.12"
