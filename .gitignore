@@ -5,6 +5,10 @@ frontend/package-lock.json
 # Build output
 frontend/dist/
 
+# Runtime logs
+*.log
+backend/log/
+
 # Hidden files
 .*
 !.gitignore
