@@ -67,15 +67,15 @@ export MAGENTA_HOME="$HOME/Documents/Magenta"
 
 ## Verifying installation
 
-Run the local MRT2 test script:
+Run the local MRT2 integration test:
 
 ```bash
 cd GenMusicHub
 source .venv/bin/activate
-python test_mrt2.py
+python main.py --test-magenta
 ```
 
-A successful run should create `~/Documents/Magenta/magenta-rt-v2/outputs/test_mrt2.wav`.
+A successful run should create a test audio file under `~/Documents/Magenta/magenta-rt-v2/outputs/`.
 
 ## GenMusicHub integration test
 

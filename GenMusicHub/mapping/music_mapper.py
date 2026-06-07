@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from energy_normalizer import EnergyNormalizer
+from core.energy_normalizer import EnergyNormalizer
 
 
 energy_normalizer = EnergyNormalizer()

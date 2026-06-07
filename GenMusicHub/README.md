@@ -24,6 +24,16 @@ Magenta RT2   Max/MSP     TouchDesigner
 Audio        MIDI/Audio      Visuals
 ```
 
+## Code Layout
+
+```text
+main.py                 WebSocket server and app entry point
+config/                 Logging and application configuration
+core/                   Dance-state validation, smoothing, normalization helpers
+mapping/                Gesture controls and dance-to-music mapping
+music_engines/          Magenta RT2 realtime and batch engine wrappers
+```
+
 ## Setup
 
 Recommended environment:
@@ -110,10 +120,10 @@ python main.py --engine mrt2
 
 If you experience audio issues on macOS, see `GenMusicHub/MAGENTA_SETUP.md` for device selection and troubleshooting notes.
 
-For a direct MRT2 runtime validation script, use:
+For a direct MRT2 runtime validation, use:
 
 ```bash
-python test_mrt2.py
+python main.py --test-magenta
 ```
 
 ## Responsibilities

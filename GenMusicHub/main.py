@@ -8,23 +8,12 @@ from typing import Any, Optional
 
 import websockets
 
-from dance_state import validate_and_normalize
-from gesture_sequence import GestureSequenceDetector
+from config.logging_config import configure_logging
+from core.dance_state import validate_and_normalize
+from core.smoothing import ExponentialSmoother
+from mapping.gesture_sequence import GestureSequenceDetector
+from mapping.music_mapper import dance_to_music_state
 from music_engines.magenta_engine import MagentaEngine
-from music_mapper import dance_to_music_state
-from smoothing import ExponentialSmoother
-
-LOG_FORMAT = '[GenMusicHub] %(asctime)s %(levelname)s: %(message)s'
-LOG_DATE_FORMAT = '%H:%M:%S'
-
-
-class MaxLevelFilter(logging.Filter):
-    def __init__(self, max_level: int) -> None:
-        super().__init__()
-        self.max_level = max_level
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.levelno <= self.max_level
 
 
 logger = logging.getLogger('GenMusicHub')
@@ -53,25 +42,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--model-size', choices=('small', 'base'), default='small', help='Magenta RT2 model size to load.')
     parser.add_argument('--verbose', action='store_true', help='Show full dance/music payloads and engine diagnostics.')
     return parser.parse_args()
-
-
-def configure_logging(verbose: bool) -> None:
-    formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.DEBUG)
-    stdout_handler.addFilter(MaxLevelFilter(logging.INFO))
-    stdout_handler.setFormatter(formatter)
-
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(logging.WARNING)
-    stderr_handler.setFormatter(formatter)
-
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
-    root_logger.handlers = [stdout_handler, stderr_handler]
-
-    logging.getLogger('GenMusicHub.mrt2_realtime').setLevel(logging.DEBUG if verbose else logging.INFO)
-    logging.getLogger('GenMusicHub.magenta_engine').setLevel(logging.DEBUG if verbose else logging.INFO)
 
 
 def log_feature_summary(dance_state: dict[str, Any], music_state: dict[str, Any], interval_seconds: float = 1.0) -> None:
