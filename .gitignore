@@ -2,6 +2,11 @@
 frontend/node_modules/
 frontend/package-lock.json
 
+# Examples
+collider/
+magenta-realtime/
+
+
 # Build output
 frontend/dist/
 
@@ -13,6 +18,10 @@ SunoHub/jobs/
 SunoHub/loops/
 SunoHub/.venv/
 GenMusicHub/.venv/
+backend/.venv/
+backend/log/
+GenMusicEngine/build/
+GenMusicEngine/cmake-build-debug/
 
 # Python generated files
 __pycache__/
