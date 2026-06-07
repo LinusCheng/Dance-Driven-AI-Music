@@ -1,6 +1,6 @@
 # Magenta RealTime 2 Setup
 
-RealTimeHub uses `magenta-rt[mlx]` to interface with Magenta RealTime 2.
+GenMusicHub uses `magenta-rt[mlx]` to interface with Magenta RealTime 2.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ RealTimeHub uses `magenta-rt[mlx]` to interface with Magenta RealTime 2.
 1. Create and activate a virtual environment:
 
 ```bash
-cd RealTimeHub
+cd GenMusicHub
 python3 -m venv .venv
 source .venv/bin/activate
 ```
@@ -70,16 +70,16 @@ export MAGENTA_HOME="$HOME/Documents/Magenta"
 Run the local MRT2 test script:
 
 ```bash
-cd RealTimeHub
+cd GenMusicHub
 source .venv/bin/activate
 python test_mrt2.py
 ```
 
 A successful run should create `~/Documents/Magenta/magenta-rt-v2/outputs/test_mrt2.wav`.
 
-## RealTimeHub integration test
+## GenMusicHub integration test
 
-Run RealTimeHub in Magenta test mode:
+Run GenMusicHub in Magenta test mode:
 
 ```bash
 python main.py --test-magenta
@@ -92,7 +92,7 @@ This will instantiate the available MRT2 runtime and generate a short test snipp
 * If `magenta_rt` fails to import, make sure the virtual environment is activated and the package is installed.
 * If the default model directory is not found, verify that `~/Documents/Magenta/magenta-rt-v2/models/mrt2_small` exists.
 * The UI can switch between `small` (`mrt2_small`) and `base` (`mrt2_base`). `small` is the default because it is the practical real-time model for Air-class Apple Silicon machines.
-* If you need to override the Magenta root, use `MAGENTA_HOME` before starting RealTimeHub.
+* If you need to override the Magenta root, use `MAGENTA_HOME` before starting GenMusicHub.
 
 ## Notes
 

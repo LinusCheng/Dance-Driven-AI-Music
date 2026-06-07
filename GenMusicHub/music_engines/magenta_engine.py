@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger('RealTimeHub.magenta_engine')
+logger = logging.getLogger('GenMusicHub.magenta_engine')
 
 
 def _clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
@@ -263,7 +263,7 @@ class MagentaEngine:
             if self.paths is not None and hasattr(self.paths, 'outputs_dir'):
                 output_dir = self.paths.outputs_dir()
                 output_dir.mkdir(parents=True, exist_ok=True)
-                output_path = output_dir / 'test_mrt2_realtimehub.wav'
+                output_path = output_dir / 'test_mrt2_genmusichub.wav'
                 wav.write(str(output_path))
                 logger.info('MagentaEngine: test audio saved to %s', output_path)
                 return str(output_path)

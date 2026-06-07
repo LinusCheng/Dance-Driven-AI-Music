@@ -16,10 +16,10 @@ from smoothing import ExponentialSmoother
 
 logging.basicConfig(
     level=logging.INFO,
-    format='[RealTimeHub] %(asctime)s %(levelname)s: %(message)s',
+    format='[GenMusicHub] %(asctime)s %(levelname)s: %(message)s',
     datefmt='%H:%M:%S',
 )
-logger = logging.getLogger('RealTimeHub')
+logger = logging.getLogger('GenMusicHub')
 
 latest_dance_state: dict[str, Any] = {}
 latest_music_state: dict[str, Any] = {}
@@ -38,7 +38,7 @@ last_feature_log_ts = 0.0
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='RealTimeHub WebSocket bridge for danceState and Magenta RT2.')
+    parser = argparse.ArgumentParser(description='GenMusicHub WebSocket bridge for danceState and Magenta RT2.')
     parser.add_argument('--mock-magenta', action='store_true', help='Force mock Magenta mode.')
     parser.add_argument('--test-magenta', action='store_true', help='Run a short Magenta test and exit.')
     parser.add_argument('--engine', default='mrt2', help='Music engine: "mrt2" (realtime, default) or "batch" (WAV files).')
@@ -51,8 +51,8 @@ def configure_logging(verbose: bool) -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
-    logging.getLogger('RealTimeHub.mrt2_realtime').setLevel(logging.DEBUG if verbose else logging.INFO)
-    logging.getLogger('RealTimeHub.magenta_engine').setLevel(logging.DEBUG if verbose else logging.INFO)
+    logging.getLogger('GenMusicHub.mrt2_realtime').setLevel(logging.DEBUG if verbose else logging.INFO)
+    logging.getLogger('GenMusicHub.magenta_engine').setLevel(logging.DEBUG if verbose else logging.INFO)
 
 
 def log_feature_summary(dance_state: dict[str, Any], music_state: dict[str, Any], interval_seconds: float = 1.0) -> None:
@@ -345,7 +345,7 @@ def main() -> int:
             magenta_engine = MRT2RealtimeEngine(model_size=selected_model_name)
             magenta_engine.connect()
             magenta_engine.start_stream()
-            logger.info('RealTimeHub: realtime MRT2 audio streaming enabled with model=%s', selected_model_name)
+            logger.info('GenMusicHub: realtime MRT2 audio streaming enabled with model=%s', selected_model_name)
         except Exception as e:
             logger.exception('Failed to start MRT2RealtimeEngine: %s', e)
             logger.info('Falling back to batch mode (WAV generation)')
@@ -366,12 +366,12 @@ def main() -> int:
         asyncio.run(run_server())
         return 0
     except KeyboardInterrupt:
-        logger.info('Shutting down RealTimeHub server.')
+        logger.info('Shutting down GenMusicHub server.')
         if magenta_engine is not None:
             magenta_engine.shutdown()
         return 0
     except Exception as error:
-        logger.exception('RealTimeHub failed: %s', error)
+        logger.exception('GenMusicHub failed: %s', error)
         if magenta_engine is not None:
             magenta_engine.shutdown()
         return 1

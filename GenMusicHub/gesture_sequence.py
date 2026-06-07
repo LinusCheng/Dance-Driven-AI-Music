@@ -4,7 +4,7 @@ from collections import deque
 from typing import Any, Deque, Dict, Optional
 
 
-logger = logging.getLogger('RealTimeHub.gesture_sequence')
+logger = logging.getLogger('GenMusicHub.gesture_sequence')
 
 GENRE_NEXT_PAIR = frozenset(('point',))
 BPM_UP_PAIR = frozenset(('openPalm', 'point'))

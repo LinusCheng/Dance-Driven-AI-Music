@@ -1,8 +1,8 @@
-# Dance-Driven AI Music RealTimeHub
+# Dance-Driven AI Music GenMusicHub
 
 A local Python control hub that receives real-time movement data from the frontend, transforms it into a higher-level dance state and music state, and distributes those signals to music generation systems such as Magenta RealTime 2, Max/MSP, TouchDesigner, or future audio engines.
 
-RealTimeHub acts as the central intelligence layer between motion tracking and music generation.
+GenMusicHub acts as the central intelligence layer between motion tracking and music generation.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ Frontend (MediaPipe)
         ↓
    WebSocket
         ↓
-   RealTimeHub
+   GenMusicHub
         ↓
     Music State
         ↓
@@ -31,10 +31,10 @@ Recommended environment:
 * Apple Silicon Mac
 * Python 3.12+
 
-From the project root, enter the RealTimeHub folder:
+From the project root, enter the GenMusicHub folder:
 
 ```bash
-cd RealTimeHub
+cd GenMusicHub
 ```
 
 Create and activate a virtual environment:
@@ -50,7 +50,7 @@ Install dependencies once:
 pip install -r requirements.txt
 ```
 
-After setup, start RealTimeHub from the same `RealTimeHub` folder:
+After setup, start GenMusicHub from the same `GenMusicHub` folder:
 
 ```bash
 python main.py
@@ -61,20 +61,20 @@ python main.py
 For normal development, use:
 
 ```bash
-cd RealTimeHub
+cd GenMusicHub
 source .venv/bin/activate
 python main.py
 ```
 
-RealTimeHub starts a WebSocket server on:
+GenMusicHub starts a WebSocket server on:
 
 ```text
 ws://localhost:8765
 ```
 
-RealTimeHub logs print to the terminal. They are not written to a log file unless you manually redirect output.
+GenMusicHub logs print to the terminal. They are not written to a log file unless you manually redirect output.
 
-Default logs are intentionally concise. When the frontend is connected, RealTimeHub prints a compact feature summary about once per second:
+Default logs are intentionally concise. When the frontend is connected, GenMusicHub prints a compact feature summary about once per second:
 
 ```text
 features energy=0.42 openness=0.58 rotation=-0.11 smile=0.22 mouth=0.04 arms=MID/HIGH gestures=none/fist -> music density=0.47 brightness=0.61 tension=0.10 event=right_fist
@@ -86,7 +86,7 @@ Use verbose mode only when you need full payloads and detailed audio-engine diag
 python main.py --verbose
 ```
 
-The frontend also includes a prompt box in the RealTimeHub stream panel. Sending text there overrides the generated Magenta style prompt until you clear it. Movement features still control the numeric generation values such as density, drums, brightness, tension, and harmony width.
+The frontend also includes a prompt box in the GenMusicHub stream panel. Sending text there overrides the generated Magenta style prompt until you clear it. Movement features still control the numeric generation values such as density, drums, brightness, tension, and harmony width.
 
 Run in forced mock mode:
 
@@ -94,7 +94,7 @@ Run in forced mock mode:
 python main.py --mock-magenta
 ```
 
-Run a short Magenta integration test using RealTimeHub's MRT2 wrapper:
+Run a short Magenta integration test using GenMusicHub's MRT2 wrapper:
 
 ```bash
 python main.py --test-magenta
@@ -108,7 +108,7 @@ To enable the realtime streaming engine (streams directly to mac speakers via `s
 python main.py --engine mrt2
 ```
 
-If you experience audio issues on macOS, see `RealTimeHub/MAGENTA_SETUP.md` for device selection and troubleshooting notes.
+If you experience audio issues on macOS, see `GenMusicHub/MAGENTA_SETUP.md` for device selection and troubleshooting notes.
 
 For a direct MRT2 runtime validation script, use:
 
@@ -118,7 +118,7 @@ python test_mrt2.py
 
 ## Responsibilities
 
-RealTimeHub is responsible for:
+GenMusicHub is responsible for:
 
 * Receiving dance state updates from the frontend
 * Validating and normalizing incoming data
@@ -129,7 +129,7 @@ RealTimeHub is responsible for:
 * Broadcasting future OSC outputs
 * Maintaining stable real-time control signals
 
-RealTimeHub is intentionally designed to be independent of any specific music engine.
+GenMusicHub is intentionally designed to be independent of any specific music engine.
 
 ## Incoming Dance State
 
@@ -188,7 +188,7 @@ These mappings are expected to evolve throughout development and experimentation
 
 ## Gesture Sequence Controls
 
-RealTimeHub includes an experimental gesture sequence detector. A gesture must be stable briefly before it is accepted, and controls have cooldowns so the style does not flicker.
+GenMusicHub includes an experimental gesture sequence detector. A gesture must be stable briefly before it is accepted, and controls have cooldowns so the style does not flicker.
 
 You only need to remember one two-hand genre control and two two-hand BPM controls:
 
@@ -204,7 +204,7 @@ The genre cycle currently includes house, disco/funk, techno, ambient, cinematic
 
 Magenta integration is currently experimental.
 
-RealTimeHub attempts to load Magenta RT2 when available and falls back to mock mode if:
+GenMusicHub attempts to load Magenta RT2 when available and falls back to mock mode if:
 
 * Magenta is not installed
 * Models are missing
@@ -250,13 +250,13 @@ Planned integrations include:
 * Frontend sends updates every 250ms
 * Music engine updates are throttled to avoid instability
 * Numeric features are smoothed before conversion
-* RealTimeHub is designed as a reusable real-time control layer
+* GenMusicHub is designed as a reusable real-time control layer
 * Movement tracking and music generation remain decoupled
 * The architecture supports swapping music engines without changing the frontend
 
 ## Current Status
 
-✅ Frontend → RealTimeHub WebSocket communication
+✅ Frontend → GenMusicHub WebSocket communication
 
 ✅ Dance State generation
 

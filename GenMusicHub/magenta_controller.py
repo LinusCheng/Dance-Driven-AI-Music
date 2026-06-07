@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger('RealTimeHub.magenta')
+logger = logging.getLogger('GenMusicHub.magenta')
 
 
 class MagentaController:

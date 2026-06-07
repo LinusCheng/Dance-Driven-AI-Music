@@ -10,8 +10,8 @@ try:
     from magenta_rt import paths
 except ImportError as error:
     print('ERROR: magenta_rt is not installed.')
-    print('Install RealTimeHub dependencies first:')
-    print('  cd RealTimeHub')
+    print('Install GenMusicHub dependencies first:')
+    print('  cd GenMusicHub')
     print('  python3 -m venv .venv')
     print('  source .venv/bin/activate')
     print('  pip install -r requirements.txt')

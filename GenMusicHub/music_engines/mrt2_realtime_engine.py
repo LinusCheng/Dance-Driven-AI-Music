@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import sounddevice as sd
 
-logger = logging.getLogger('RealTimeHub.mrt2_realtime')
+logger = logging.getLogger('GenMusicHub.mrt2_realtime')
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:

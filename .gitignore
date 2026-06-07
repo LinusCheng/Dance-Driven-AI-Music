@@ -7,12 +7,12 @@ frontend/dist/
 
 # Runtime logs
 *.log
-RealTimeHub/log/
+GenMusicHub/log/
 SunoHub/downloads/
 SunoHub/jobs/
 SunoHub/loops/
 SunoHub/.venv/
-RealTimeHub/.venv/
+GenMusicHub/.venv/
 
 # Python generated files
 __pycache__/

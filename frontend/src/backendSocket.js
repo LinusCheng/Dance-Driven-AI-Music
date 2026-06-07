@@ -38,7 +38,7 @@ export function createBackendClient(ui) {
       return;
     }
 
-    setStatus('RealTimeHub disconnected', false);
+    setStatus('GenMusicHub disconnected', false);
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       connect();
@@ -49,7 +49,7 @@ export function createBackendClient(ui) {
     cleanupSocket();
 
     try {
-      setStatus('RealTimeHub connecting...', false);
+      setStatus('GenMusicHub connecting...', false);
       socket = new WebSocket(BACKEND_URL);
     } catch (error) {
       console.warn('WebSocket connect failed', error);
@@ -58,13 +58,13 @@ export function createBackendClient(ui) {
     }
 
     socket.onopen = () => {
-      setStatus('RealTimeHub connected', true);
+      setStatus('GenMusicHub connected', true);
       sendBackendDebugPreference();
       sendMagentaMotionInputPreference();
       sendMagentaModelSizePreference();
       sendLiveControls();
       sendManualPrompt();
-      console.info('RealTimeHub WebSocket connected.');
+      console.info('GenMusicHub WebSocket connected.');
     };
 
     socket.onmessage = (event) => {
@@ -105,16 +105,16 @@ export function createBackendClient(ui) {
         // Ignore non-JSON backend messages; terminal logs stay out of the UI.
       }
 
-      console.debug('RealTimeHub emitted:', event.data);
+      console.debug('GenMusicHub emitted:', event.data);
     };
 
     socket.onerror = () => {
-      console.warn('RealTimeHub WebSocket error.');
+      console.warn('GenMusicHub WebSocket error.');
       scheduleReconnect();
     };
 
     socket.onclose = () => {
-      console.info('RealTimeHub WebSocket closed.');
+      console.info('GenMusicHub WebSocket closed.');
       scheduleReconnect();
     };
   }

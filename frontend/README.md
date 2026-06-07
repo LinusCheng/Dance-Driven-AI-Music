@@ -42,13 +42,13 @@ npm install
 npm run dev
 ```
 
-## Running with RealTimeHub
+## Running with GenMusicHub
 
-By default the frontend connects to the RealTimeHub WebSocket at `ws://localhost:8765`.
+By default the frontend connects to the GenMusicHub WebSocket at `ws://localhost:8765`.
 
-To develop with real-time music, start RealTimeHub first (see `../RealTimeHub/README.md`) and then run `npm run dev` in this folder.
+To develop with real-time music, start GenMusicHub first (see `../GenMusicHub/README.md`) and then run `npm run dev` in this folder.
 
-If you want to use the frontend standalone for UI development, open `index.html` in a browser, but the music features require RealTimeHub.
+If you want to use the frontend standalone for UI development, open `index.html` in a browser, but the music features require GenMusicHub.
 
 ## Running with SunoHub
 
