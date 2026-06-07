@@ -179,8 +179,6 @@ async def run_server(host: str, port: int) -> None:
     if cpp_engine is None:
         cpp_engine = CppEnginePortal()
     cpp_engine.connect()
-    if cpp_engine is not None:
-        cpp_engine.update_prompt_nodes(prompt_texts, prompt_weights)
 
     async with websockets.serve(handle_connection, host, port):
         logger.info('WebSocket server listening on ws://%s:%d', host, port)

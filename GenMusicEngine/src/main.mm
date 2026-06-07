@@ -495,7 +495,6 @@ public:
             return false;
         }
 
-        apply_prompt();
         state_.last_error.clear();
         start_status_thread_once();
         return true;

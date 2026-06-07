@@ -3,9 +3,9 @@ import './style.css';
 const BACKEND_URL = 'ws://localhost:8765';
 
 const defaultNodes = [
-  { id: 'node_1', label: 'Anchor', prompt: 'Harold bud style', weight: 1, enabled: true },
-  { id: 'node_2', label: 'Groove', prompt: 'laurie spiegel', weight: 0.5, enabled: false },
-  { id: 'node_3', label: 'Space', prompt: 'ambient gamelan', weight: 0.5, enabled: false },
+  { id: 'node_1', label: 'Anchor', prompt: 'piano', weight: 1, enabled: true },
+  { id: 'node_2', label: 'Groove', prompt: 'ambient', weight: 0.5, enabled: false },
+  { id: 'node_3', label: 'Space', prompt: 'drums', weight: 0.5, enabled: false },
   // Re-enable these when you want the full six-node prompt surface again.
   // { id: 'node_4', label: 'Drive', prompt: 'driving techno industrial pulse', weight: 0.5, enabled: false },
   // { id: 'node_5', label: 'Drama', prompt: 'cinematic experimental motion', weight: 0.5, enabled: false },
