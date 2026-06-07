@@ -44,6 +44,7 @@ class CppEnginePortal:
 
         candidates.extend([
             repo_root / 'GenMusicEngine' / 'build' / 'gen_music_engine',
+            repo_root / 'GenMusicEngine' / 'ninja-build' / 'gen_music_engine',
             repo_root / 'GenMusicEngine' / 'cmake-build-debug' / 'gen_music_engine',
         ])
 
@@ -167,6 +168,19 @@ class CppEnginePortal:
             'type': 'updateLiveControls',
             'timestamp': time.time(),
             'controls': controls,
+        })
+
+    def update_prompt_nodes(self, prompt_texts: Dict[str, str], weights: Dict[str, float]) -> None:
+        self._prompt_texts = dict(prompt_texts)
+        self._last_weights = dict(weights)
+        self._last_prompt = ''
+        self._send({
+            'type': 'updateMusicState',
+            'timestamp': time.time(),
+            'prompt': '',
+            'controls': dict(self._last_controls),
+            'weights': self._last_weights,
+            'promptTexts': self._prompt_texts,
         })
 
     def set_model_size(self, model_name: str) -> None:

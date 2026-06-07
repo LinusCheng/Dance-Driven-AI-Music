@@ -13,7 +13,12 @@ from core.dance_state import validate_and_normalize
 from core.smoothing import ExponentialSmoother
 from mapping.gesture_sequence import GestureSequenceDetector
 from mapping.music_mapper import dance_to_music_state
-from mapping.prompt_weights import default_prompt_weights, normalize_prompt_weights
+from mapping.prompt_weights import (
+    default_prompt_texts,
+    default_prompt_weights,
+    normalize_prompt_texts,
+    normalize_prompt_weights,
+)
 from music_engines.cpp_engine_portal import CppEnginePortal
 
 
@@ -22,8 +27,9 @@ logger = logging.getLogger('Backend')
 latest_dance_state: dict[str, Any] = {}
 latest_music_state: dict[str, Any] = {}
 engine_motion_input_enabled = False
-engine_model_size = 'base'
+engine_model_size = 'small'
 prompt_weights = default_prompt_weights()
+prompt_texts = default_prompt_texts()
 
 MODEL_SIZES = {
     'small': 'mrt2_small',
@@ -38,8 +44,8 @@ last_feature_log_ts = 0.0
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Backend WebSocket bridge for danceState and GenMusicEngine.')
-    parser.add_argument('--engine-executable', default='GenMusicEngine/build/gen_music_engine', help='Path to GenMusicEngine executable.')
-    parser.add_argument('--model-size', choices=('small', 'base'), default='base', help='Model size hint to pass to GenMusicEngine.')
+    parser.add_argument('--engine-executable', default='GenMusicEngine/ninja-build/gen_music_engine', help='Path to GenMusicEngine executable.')
+    parser.add_argument('--model-size', choices=('small', 'base'), default='small', help='Model size hint to pass to GenMusicEngine.')
     parser.add_argument('--host', default='127.0.0.1', help='WebSocket host.')
     parser.add_argument('--port', type=int, default=8766, help='WebSocket port. Use 8765 when replacing GenMusicHub.')
     parser.add_argument('--verbose', action='store_true', help='Show full dance/music payloads and portal diagnostics.')
@@ -133,6 +139,8 @@ def build_debug_payload(dance_state: dict[str, Any], music_state: dict[str, Any]
             'engineMotionInputEnabled': engine_motion_input_enabled,
             'engineModelSize': engine_model_size,
             'engineModelName': model_name_for_size(engine_model_size),
+            'promptTexts': prompt_texts,
+            'promptWeights': prompt_weights,
         },
     }
 
@@ -157,7 +165,7 @@ def is_message_type(payload: Any, *message_types: str) -> bool:
 
 
 async def handle_connection(websocket: Any) -> None:
-    global engine_motion_input_enabled, engine_model_size, prompt_weights
+    global engine_motion_input_enabled, engine_model_size, prompt_weights, prompt_texts
 
     client_address = websocket.remote_address
     backend_debug_enabled = False
@@ -237,6 +245,21 @@ async def handle_connection(websocket: Any) -> None:
                     'weights': prompt_weights,
                 }))
                 logger.info('Prompt weights updated: %s', prompt_weights)
+                continue
+
+            if is_message_type(payload, 'setPromptNodes'):
+                prompt_texts = normalize_prompt_texts(payload.get('promptTexts'))
+                prompt_weights = normalize_prompt_weights(payload.get('weights'))
+                if latest_music_state:
+                    latest_music_state['promptWeights'] = dict(prompt_weights)
+                if cpp_engine is not None:
+                    cpp_engine.update_prompt_nodes(prompt_texts, prompt_weights)
+                await websocket.send(json.dumps({
+                    'type': 'promptNodesStatus',
+                    'promptTexts': prompt_texts,
+                    'weights': prompt_weights,
+                }))
+                logger.info('Prompt nodes updated texts=%s weights=%s', prompt_texts, prompt_weights)
                 continue
 
             if is_message_type(payload, 'setLiveControls'):

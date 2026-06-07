@@ -43,6 +43,9 @@ constexpr std::array<const char*, 6> kDefaultPromptTexts = {
     "funky syncopated bass and drums",
 };
 
+constexpr std::size_t kRunnerBufferSamples = 8192;
+constexpr std::size_t kPlaybackStartBufferSamples = 5760;
+
 double clamp(double value, double min_value, double max_value) {
     return std::max(min_value, std::min(max_value, value));
 }
@@ -128,6 +131,16 @@ struct EngineState {
     double stream_sample_rate = 48000.0;
     double device_sample_rate = 0.0;
     int output_channels = 2;
+    double output_gain = 0.65;
+    double audio_peak = 0.0;
+    std::uint64_t clipped_samples = 0;
+    std::uint64_t audio_underruns = 0;
+    std::uint64_t rebuffer_events = 0;
+    std::size_t runner_buffer_available = 0;
+    std::size_t runner_buffer_capacity = 0;
+    double runner_transformer_ms = 0.0;
+    double runner_total_ms = 0.0;
+    std::uint64_t runner_dropped_frames = 0;
     std::string last_error;
 };
 
@@ -139,9 +152,9 @@ void initialize_state(EngineState& state) {
         state.weights[kPromptNodes[i]] = i == 0 ? 1.0 : 0.0;
     }
     state.controls["temperature"] = 1.0;
-    state.controls["top_k"] = 100.0;
-    state.controls["cfg_musiccoca"] = 3.0;
-    state.controls["cfg_notes"] = 5.0;
+    state.controls["top_k"] = 40.0;
+    state.controls["cfg_musiccoca"] = 1.5;
+    state.controls["cfg_notes"] = 1.0;
     state.controls["cfg_drums"] = 1.0;
 }
 
@@ -163,29 +176,6 @@ void update_weights_from_json(EngineState& state, const std::string& json) {
     }
 }
 
-std::vector<float> normalized_prompt_weights(const EngineState& state) {
-    std::vector<float> weights;
-    weights.reserve(kPromptNodes.size());
-
-    double total = 0.0;
-    for (const char* node : kPromptNodes) {
-        total += std::max(0.0, weight_value(state, node, 0.0));
-    }
-
-    if (total <= 0.0001) {
-        weights.push_back(1.0f);
-        for (std::size_t i = 1; i < kPromptNodes.size(); ++i) {
-            weights.push_back(0.0f);
-        }
-        return weights;
-    }
-
-    for (const char* node : kPromptNodes) {
-        weights.push_back(static_cast<float>(std::max(0.0, weight_value(state, node, 0.0)) / total));
-    }
-    return weights;
-}
-
 void update_controls_from_json(EngineState& state, const std::string& json) {
     for (const std::string key : {
         "density",
@@ -198,6 +188,7 @@ void update_controls_from_json(EngineState& state, const std::string& json) {
         "cfg_musiccoca",
         "cfg_notes",
         "cfg_drums",
+        "outputGain",
     }) {
         if (auto value = extract_number(json, key)) {
             state.controls[key] = *value;
@@ -270,6 +261,16 @@ void emit_status(const EngineState& state, const std::string& message, bool ok =
         << "\"streamSampleRate\":" << state.stream_sample_rate << ","
         << "\"deviceSampleRate\":" << state.device_sample_rate << ","
         << "\"outputChannels\":" << state.output_channels << ","
+        << "\"outputGain\":" << state.output_gain << ","
+        << "\"audioPeak\":" << state.audio_peak << ","
+        << "\"clippedSamples\":" << state.clipped_samples << ","
+        << "\"audioUnderruns\":" << state.audio_underruns << ","
+        << "\"rebufferEvents\":" << state.rebuffer_events << ","
+        << "\"runnerBufferAvailable\":" << state.runner_buffer_available << ","
+        << "\"runnerBufferCapacity\":" << state.runner_buffer_capacity << ","
+        << "\"runnerTransformerMs\":" << state.runner_transformer_ms << ","
+        << "\"runnerTotalMs\":" << state.runner_total_ms << ","
+        << "\"runnerDroppedFrames\":" << state.runner_dropped_frames << ","
         << "\"controls\":" << object_json(state.controls, {
             "temperature", "top_k", "cfg_musiccoca", "cfg_notes", "cfg_drums",
             "density", "brightness", "tension", "rhythmicActivity", "harmonyWidth",
@@ -286,7 +287,12 @@ void emit_status(const EngineState& state, const std::string& message, bool ok =
 }  // namespace
 
 @interface AudioHost : NSObject
-- (instancetype)initWithRunner:(RealtimeRunner*)runner;
+- (instancetype)initWithRunner:(RealtimeRunner*)runner
+                    outputGain:(std::atomic<float>*)outputGain
+                     peakValue:(std::atomic<float>*)peakValue
+                 clippedSamples:(std::atomic<std::uint64_t>*)clippedSamples
+                  underrunCount:(std::atomic<std::uint64_t>*)underrunCount
+                  rebufferCount:(std::atomic<std::uint64_t>*)rebufferCount;
 - (BOOL)startWithError:(NSError**)error;
 - (double)streamSampleRate;
 - (double)deviceSampleRate;
@@ -296,14 +302,31 @@ void emit_status(const EngineState& state, const std::string& message, bool ok =
 
 @implementation AudioHost {
     RealtimeRunner* _runner;
+    std::atomic<float>* _outputGain;
+    std::atomic<float>* _peakValue;
+    std::atomic<std::uint64_t>* _clippedSamples;
+    std::atomic<std::uint64_t>* _underrunCount;
+    std::atomic<std::uint64_t>* _rebufferCount;
+    std::atomic<bool> _playbackPrimed;
     AVAudioEngine* _audioEngine;
     AVAudioSourceNode* _sourceNode;
 }
 
-- (instancetype)initWithRunner:(RealtimeRunner*)runner {
+- (instancetype)initWithRunner:(RealtimeRunner*)runner
+                    outputGain:(std::atomic<float>*)outputGain
+                     peakValue:(std::atomic<float>*)peakValue
+                 clippedSamples:(std::atomic<std::uint64_t>*)clippedSamples
+                  underrunCount:(std::atomic<std::uint64_t>*)underrunCount
+                  rebufferCount:(std::atomic<std::uint64_t>*)rebufferCount {
     self = [super init];
     if (self) {
         _runner = runner;
+        _outputGain = outputGain;
+        _peakValue = peakValue;
+        _clippedSamples = clippedSamples;
+        _underrunCount = underrunCount;
+        _rebufferCount = rebufferCount;
+        _playbackPrimed.store(false, std::memory_order_relaxed);
     }
     return self;
 }
@@ -334,7 +357,48 @@ void emit_status(const EngineState& state, const std::string& message, bool ok =
                 return noErr;
             }
 
-            runner->read_audio_stereo(outL, outR, frameCount, false);
+            if (!_playbackPrimed.load(std::memory_order_relaxed)) {
+                const auto metrics = runner->get_metrics();
+                if (metrics.buffer_available < kPlaybackStartBufferSamples) {
+                    std::memset(outL, 0, frameCount * sizeof(float));
+                    if (outputData->mNumberBuffers > 1) {
+                        std::memset(outR, 0, frameCount * sizeof(float));
+                    }
+                    *isSilence = YES;
+                    return noErr;
+                }
+                _playbackPrimed.store(true, std::memory_order_relaxed);
+            }
+
+            const bool audioOk = runner->read_audio_stereo(outL, outR, frameCount, false);
+            if (!audioOk) {
+                _underrunCount->fetch_add(1, std::memory_order_relaxed);
+                _rebufferCount->fetch_add(1, std::memory_order_relaxed);
+                _playbackPrimed.store(false, std::memory_order_relaxed);
+            }
+            float peak = 0.0f;
+            std::uint64_t clipped = 0;
+            const float gain = _outputGain->load(std::memory_order_relaxed);
+            for (AVAudioFrameCount i = 0; i < frameCount; ++i) {
+                float left = outL[i] * gain;
+                float right = outR[i] * gain;
+                if (std::abs(left) > 0.98f) {
+                    ++clipped;
+                }
+                if (std::abs(right) > 0.98f) {
+                    ++clipped;
+                }
+                left = std::tanh(left);
+                right = std::tanh(right);
+                peak = std::max(peak, std::abs(left));
+                peak = std::max(peak, std::abs(right));
+                outL[i] = left;
+                outR[i] = right;
+            }
+            _peakValue->store(peak, std::memory_order_relaxed);
+            if (clipped > 0) {
+                _clippedSamples->fetch_add(clipped, std::memory_order_relaxed);
+            }
             *isSilence = NO;
             return noErr;
         }];
@@ -372,7 +436,14 @@ namespace {
 class NativeMagentaEngine {
 public:
     explicit NativeMagentaEngine(EngineState& state)
-        : state_(state), audio_host_([[AudioHost alloc] initWithRunner:&runner_]) {}
+        : state_(state),
+          output_gain_(static_cast<float>(state.output_gain)),
+          audio_host_([[AudioHost alloc] initWithRunner:&runner_
+                                             outputGain:&output_gain_
+                                              peakValue:&peak_value_
+                                          clippedSamples:&clipped_samples_
+                                           underrunCount:&underrun_count_
+                                           rebufferCount:&rebuffer_count_]) {}
 
     bool start_audio() {
         NSError* error = nil;
@@ -385,10 +456,15 @@ public:
         state_.stream_sample_rate = [audio_host_ streamSampleRate];
         state_.device_sample_rate = [audio_host_ deviceSampleRate];
         state_.output_channels = [audio_host_ outputChannels];
+        refresh_audio_stats();
         return true;
     }
 
     void stop() {
+        status_running_.store(false, std::memory_order_relaxed);
+        if (status_thread_.joinable()) {
+            status_thread_.join();
+        }
         [audio_host_ stop];
         runner_.stop();
     }
@@ -412,6 +488,7 @@ public:
         }
 
         apply_controls();
+        runner_.set_buffer_size(kRunnerBufferSamples);
         state_.model_ready = runner_.load_model(path.string().c_str());
         if (!state_.model_ready) {
             state_.last_error = "failed to load model: " + path.string();
@@ -420,6 +497,7 @@ public:
 
         apply_prompt();
         state_.last_error.clear();
+        start_status_thread_once();
         return true;
     }
 
@@ -429,29 +507,90 @@ public:
         runner_.set_cfg_musiccoca(static_cast<float>(clamp(control_value(state_, "cfg_musiccoca", 3.0), 0.0, 5.0)));
         runner_.set_cfg_notes(static_cast<float>(clamp(control_value(state_, "cfg_notes", 5.0), 0.0, 5.0)));
         runner_.set_cfg_drums(static_cast<float>(clamp(control_value(state_, "cfg_drums", 1.0), 0.0, 5.0)));
+        if (state_.controls.count("outputGain") > 0) {
+            state_.output_gain = clamp(control_value(state_, "outputGain", state_.output_gain), 0.05, 1.0);
+            output_gain_.store(static_cast<float>(state_.output_gain), std::memory_order_relaxed);
+        }
+        refresh_audio_stats();
     }
 
     void apply_prompt() {
         std::vector<std::string> texts;
+        std::vector<float> weights;
         texts.reserve(kPromptNodes.size());
+        weights.reserve(kPromptNodes.size());
 
         for (const char* node : kPromptNodes) {
+            const float weight = static_cast<float>(std::max(0.0, weight_value(state_, node, 0.0)));
+            if (weight <= 0.0001f) {
+                continue;
+            }
             auto found = state_.prompt_texts.find(node);
-            texts.push_back(found == state_.prompt_texts.end() ? "" : found->second);
+            std::string text = found == state_.prompt_texts.end() ? "" : found->second;
+            if (text.empty()) {
+                text = "silence";
+            }
+            texts.push_back(text);
+            weights.push_back(weight);
         }
 
         if (!state_.prompt.empty()) {
-            texts[0] = state_.prompt;
+            texts.clear();
+            weights.clear();
+            texts.push_back(state_.prompt);
+            weights.push_back(1.0f);
         }
 
-        std::vector<float> weights = normalized_prompt_weights(state_);
+        if (texts.empty()) {
+            texts.push_back("silence");
+            weights.push_back(1.0f);
+        }
+
         runner_.set_text_prompts(texts, weights);
         runner_.set_blend_weights(weights.data(), static_cast<int>(weights.size()));
+    }
+
+    void refresh_audio_stats() {
+        state_.audio_peak = peak_value_.load(std::memory_order_relaxed);
+        state_.clipped_samples = clipped_samples_.load(std::memory_order_relaxed);
+        state_.audio_underruns = underrun_count_.load(std::memory_order_relaxed);
+        state_.rebuffer_events = rebuffer_count_.load(std::memory_order_relaxed);
+        const auto metrics = runner_.get_metrics();
+        state_.runner_buffer_available = metrics.buffer_available;
+        state_.runner_buffer_capacity = metrics.buffer_capacity;
+        state_.runner_transformer_ms = metrics.transformer_ms;
+        state_.runner_total_ms = metrics.total_ms;
+        state_.runner_dropped_frames = metrics.dropped_frames;
+    }
+
+    void start_status_thread_once() {
+        bool expected = false;
+        if (!status_running_.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
+            return;
+        }
+
+        status_thread_ = std::thread([this]() {
+            while (status_running_.load(std::memory_order_relaxed)) {
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                if (!status_running_.load(std::memory_order_relaxed)) {
+                    break;
+                }
+                refresh_audio_stats();
+                emit_status(state_, "runtime audio status");
+            }
+        });
     }
 
 private:
     EngineState& state_;
     RealtimeRunner runner_;
+    std::atomic<float> output_gain_{0.65f};
+    std::atomic<float> peak_value_{0.0f};
+    std::atomic<std::uint64_t> clipped_samples_{0};
+    std::atomic<std::uint64_t> underrun_count_{0};
+    std::atomic<std::uint64_t> rebuffer_count_{0};
+    std::atomic<bool> status_running_{false};
+    std::thread status_thread_;
     AudioHost* audio_host_;
 };
 

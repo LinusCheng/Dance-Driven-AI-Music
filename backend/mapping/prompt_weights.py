@@ -37,6 +37,18 @@ def default_prompt_texts() -> Dict[str, str]:
     return dict(PROMPT_NODE_TEXTS)
 
 
+def normalize_prompt_texts(payload: Any) -> Dict[str, str]:
+    texts = default_prompt_texts()
+    if not isinstance(payload, dict):
+        return texts
+
+    for name in PROMPT_NODE_NAMES:
+        if name in payload:
+            texts[name] = str(payload[name] or '').strip()[:160]
+
+    return texts
+
+
 def normalize_prompt_weights(payload: Any) -> Dict[str, float]:
     weights = default_prompt_weights()
     if not isinstance(payload, dict):
