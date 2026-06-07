@@ -1,6 +1,6 @@
 # Audience Frontend
 
-Small control surface for blending the six live prompt nodes sent to the Python
+Small control surface for blending the active live prompt nodes sent to the Python
 backend and native GenMusicEngine.
 
 ## Start
@@ -20,7 +20,7 @@ http://127.0.0.1:5174
 The app connects to the backend WebSocket at:
 
 ```text
-ws://127.0.0.1:8766
+ws://localhost:8765
 ```
 
 Start the backend first:
@@ -31,15 +31,12 @@ source .venv/bin/activate
 python main.py
 ```
 
-The audience page sends structured prompt-node data:
+The audience page sends numeric prompt-node weights only. Prompt text is fixed
+inside the Python backend.
 
 ```json
 {
-  "type": "setPromptNodes",
-  "promptTexts": {
-    "node_1": "warm piano pulse",
-    "node_2": "bright disco house groove"
-  },
+  "type": "setPromptWeights",
   "weights": {
     "node_1": 1,
     "node_2": 0.4

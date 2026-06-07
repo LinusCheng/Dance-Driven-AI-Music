@@ -16,7 +16,6 @@ from mapping.music_mapper import dance_to_music_state
 from mapping.prompt_weights import (
     default_prompt_texts,
     default_prompt_weights,
-    normalize_prompt_texts,
     normalize_prompt_weights,
 )
 from music_engines.cpp_engine_portal import CppEnginePortal
@@ -46,8 +45,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Backend WebSocket bridge for danceState and GenMusicEngine.')
     parser.add_argument('--engine-executable', default='GenMusicEngine/ninja-build/gen_music_engine', help='Path to GenMusicEngine executable.')
     parser.add_argument('--model-size', choices=('small', 'base'), default='small', help='Model size hint to pass to GenMusicEngine.')
-    parser.add_argument('--host', default='127.0.0.1', help='WebSocket host.')
-    parser.add_argument('--port', type=int, default=8766, help='WebSocket port. Use 8765 when replacing GenMusicHub.')
+    parser.add_argument('--host', default='localhost', help='WebSocket host.')
+    parser.add_argument('--port', type=int, default=8765, help='WebSocket port.')
     parser.add_argument('--verbose', action='store_true', help='Show full dance/music payloads and portal diagnostics.')
     return parser.parse_args()
 
@@ -238,28 +237,13 @@ async def handle_connection(websocket: Any) -> None:
                 prompt_weights = normalize_prompt_weights(payload.get('weights'))
                 if latest_music_state:
                     latest_music_state['promptWeights'] = dict(prompt_weights)
-                    if cpp_engine is not None:
-                        cpp_engine.update_music_state(latest_music_state)
+                if cpp_engine is not None:
+                    cpp_engine.update_prompt_nodes(prompt_texts, prompt_weights)
                 await websocket.send(json.dumps({
                     'type': 'promptWeightsStatus',
                     'weights': prompt_weights,
                 }))
-                logger.info('Prompt weights updated: %s', prompt_weights)
-                continue
-
-            if is_message_type(payload, 'setPromptNodes'):
-                prompt_texts = normalize_prompt_texts(payload.get('promptTexts'))
-                prompt_weights = normalize_prompt_weights(payload.get('weights'))
-                if latest_music_state:
-                    latest_music_state['promptWeights'] = dict(prompt_weights)
-                if cpp_engine is not None:
-                    cpp_engine.update_prompt_nodes(prompt_texts, prompt_weights)
-                await websocket.send(json.dumps({
-                    'type': 'promptNodesStatus',
-                    'promptTexts': prompt_texts,
-                    'weights': prompt_weights,
-                }))
-                logger.info('Prompt nodes updated texts=%s weights=%s', prompt_texts, prompt_weights)
+                logger.info('Prompt weights normalized and applied: %s', prompt_weights)
                 continue
 
             if is_message_type(payload, 'setLiveControls'):

@@ -1,14 +1,15 @@
 import './style.css';
 
-const BACKEND_URL = 'ws://127.0.0.1:8766';
+const BACKEND_URL = 'ws://localhost:8765';
 
 const defaultNodes = [
-  { id: 'node_1', label: 'Anchor', text: 'warm piano pulse', weight: 1, enabled: true },
-  { id: 'node_2', label: 'Groove', text: 'bright disco house groove', weight: 0.5, enabled: false },
-  { id: 'node_3', label: 'Space', text: 'minimal ambient texture', weight: 0.5, enabled: false },
-  { id: 'node_4', label: 'Drive', text: 'driving techno industrial pulse', weight: 0.5, enabled: false },
-  { id: 'node_5', label: 'Drama', text: 'cinematic experimental motion', weight: 0.5, enabled: false },
-  { id: 'node_6', label: 'Funk', text: 'funky syncopated bass and drums', weight: 0.5, enabled: false },
+  { id: 'node_1', label: 'Anchor', weight: 1, enabled: true },
+  { id: 'node_2', label: 'Groove', weight: 0.5, enabled: false },
+  { id: 'node_3', label: 'Space', weight: 0.5, enabled: false },
+  // Re-enable these when you want the full six-node prompt surface again.
+  // { id: 'node_4', label: 'Drive', weight: 0.5, enabled: false },
+  // { id: 'node_5', label: 'Drama', weight: 0.5, enabled: false },
+  // { id: 'node_6', label: 'Funk', weight: 0.5, enabled: false },
 ];
 
 const state = {
@@ -47,14 +48,6 @@ function outgoingWeights() {
   return weights;
 }
 
-function promptTexts() {
-  const texts = {};
-  for (const node of state.nodes) {
-    texts[node.id] = node.text.trim();
-  }
-  return texts;
-}
-
 function totalWeight() {
   return Object.values(outgoingWeights()).reduce((sum, weight) => sum + weight, 0);
 }
@@ -82,10 +75,6 @@ function updateNodeDisplay(node) {
   const slider = card.querySelector('[data-field="weight"]');
   if (slider && Number(slider.value) !== Number(node.weight)) {
     slider.value = String(node.weight);
-  }
-  const textarea = card.querySelector('[data-field="text"]');
-  if (textarea && textarea.value !== node.text) {
-    textarea.value = node.text;
   }
   updateTotal();
 }
@@ -117,18 +106,17 @@ function updateEngineStatus() {
   }
 }
 
-function sendPromptNodes() {
+function sendPromptWeights() {
   if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
     setStatus('Backend is not connected');
     return;
   }
 
   state.socket.send(JSON.stringify({
-    type: 'setPromptNodes',
-    promptTexts: promptTexts(),
+    type: 'setPromptWeights',
     weights: outgoingWeights(),
   }));
-  setStatus('Prompt nodes submitted');
+  setStatus('Weights submitted');
 }
 
 function scheduleReconnect() {
@@ -172,18 +160,15 @@ function connect(isRetry = false) {
       return;
     }
 
-    if (payload.type === 'promptNodesStatus') {
+    if (payload.type === 'promptWeightsStatus') {
       for (const node of state.nodes) {
-        if (payload.promptTexts?.[node.id] !== undefined) {
-          node.text = payload.promptTexts[node.id];
-        }
         if (payload.weights?.[node.id] !== undefined) {
           const incomingWeight = Number(payload.weights[node.id]) || 0;
           node.enabled = incomingWeight > 0;
           node.weight = incomingWeight > 0 ? incomingWeight : node.weight;
         }
       }
-      setStatus('Prompt blend applied');
+      setStatus('Weights applied');
       updateAllNodeDisplays();
     }
 
@@ -211,7 +196,7 @@ function connect(isRetry = false) {
 function resetNodes() {
   state.nodes = structuredClone(defaultNodes);
   updateAllNodeDisplays();
-  sendPromptNodes();
+  sendPromptWeights();
 }
 
 function renderEngineStatus() {
@@ -251,12 +236,6 @@ function renderNode(node) {
           <button class="toggle-button" data-toggle data-node="${node.id}" type="button">${node.enabled ? 'On' : 'Off'}</button>
         </div>
       </header>
-      <textarea
-        data-node="${node.id}"
-        data-field="text"
-        rows="3"
-        aria-label="${escapeHtml(node.label)} prompt"
-      >${escapeHtml(node.text)}</textarea>
       <input
         data-node="${node.id}"
         data-field="weight"
@@ -273,7 +252,7 @@ function renderNode(node) {
 
 function bindEvents() {
   document.querySelector('#connectButton')?.addEventListener('click', connect);
-  document.querySelector('#sendButton')?.addEventListener('click', sendPromptNodes);
+  document.querySelector('#sendButton')?.addEventListener('click', sendPromptWeights);
   document.querySelector('#resetButton')?.addEventListener('click', resetNodes);
 
   document.querySelectorAll('[data-toggle]').forEach((button) => {
@@ -285,15 +264,6 @@ function bindEvents() {
         node.weight = 0.5;
       }
       updateNodeDisplay(node);
-    });
-  });
-
-  document.querySelectorAll('[data-field="text"]').forEach((input) => {
-    input.addEventListener('input', (event) => {
-      const node = nodeById(event.currentTarget.dataset.node);
-      if (node) {
-        node.text = event.currentTarget.value;
-      }
     });
   });
 
@@ -328,7 +298,7 @@ function render() {
 
       <section class="toolbar" aria-label="Prompt actions">
         <button id="connectButton" type="button">${state.connected ? 'Reconnect' : 'Connect'}</button>
-        <button id="sendButton" type="button">Submit Prompts</button>
+        <button id="sendButton" type="button">Submit Weights</button>
         <button id="resetButton" type="button">Reset</button>
         <div class="total">
           <span>Total Weight</span>

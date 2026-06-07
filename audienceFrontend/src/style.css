@@ -205,7 +205,6 @@ h1 {
   opacity: 0.58;
 }
 
-.prompt-card.is-off textarea,
 .prompt-card.is-off input[type="range"] {
   opacity: 0.72;
 }
@@ -262,19 +261,6 @@ output {
   color: #f0aaa3;
 }
 
-textarea {
-  width: 100%;
-  min-height: 86px;
-  resize: vertical;
-  border: 1px solid rgba(246, 242, 234, 0.16);
-  border-radius: 6px;
-  padding: 11px 12px;
-  background: rgba(0, 0, 0, 0.24);
-  color: #f6f2ea;
-  line-height: 1.38;
-}
-
-textarea:focus,
 input[type="range"]:focus-visible,
 button:focus-visible {
   outline: 2px solid #91cdf2;
