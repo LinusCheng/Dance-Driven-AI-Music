@@ -264,13 +264,16 @@ class MRT2RealtimeEngine:
                     # remaining frames are zero (silence)
                     now = time.monotonic()
                     if logger.isEnabledFor(logging.DEBUG) or now - self._last_underrun_log_ts >= 2.0:
-                        logger.warning(
-                            'MRT2RealtimeEngine: buffer underrun on callback #%d '
+                        model_ready = self._model_ready.is_set()
+                        log_method = logger.warning if model_ready else logger.info
+                        log_method(
+                            'MRT2RealtimeEngine: %sbuffer underrun on callback #%d '
                             '(had %d samples, need %d, modelReady=%s, running=%s)',
+                            '' if model_ready else 'startup ',
                             callback_count[0],
                             buffer_before,
                             needed,
-                            self._model_ready.is_set(),
+                            model_ready,
                             self._running,
                         )
                         last_log_count[0] = callback_count[0]

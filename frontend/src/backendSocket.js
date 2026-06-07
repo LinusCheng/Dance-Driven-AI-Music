@@ -63,7 +63,6 @@ export function createBackendClient(ui) {
       sendMagentaMotionInputPreference();
       sendMagentaModelSizePreference();
       sendLiveControls();
-      sendManualPrompt();
       console.info('GenMusicHub WebSocket connected.');
     };
 
