@@ -61,6 +61,33 @@ PyCharm/CLion may build this instead:
 GenMusicEngine/cmake-build-debug/gen_music_engine
 ```
 
+## Build Troubleshooting
+
+Use Ninja for this target. The Xcode generator can fail inside TensorFlow Lite
+because of duplicate generated protobuf files.
+
+```bash
+cmake -S . -B build -G Ninja \
+  -DCMAKE_MAKE_PROGRAM=/Applications/CLion.app/Contents/bin/ninja/mac/aarch64/ninja
+cmake --build build --target gen_music_engine -j4
+```
+
+If CMake prints this:
+
+```text
+cannot execute tool 'metal' due to missing Metal Toolchain
+```
+
+install the Xcode Metal component:
+
+```bash
+xcodebuild -downloadComponent MetalToolchain
+xcrun -f metal
+```
+
+The many `FetchContent_Populate(...) is deprecated` warnings come from MLX /
+TensorFlow Lite dependencies and are not the app failing.
+
 ## Protocol
 
 Backend sends one JSON object per line.

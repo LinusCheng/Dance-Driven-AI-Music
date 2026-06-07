@@ -125,6 +125,9 @@ struct EngineState {
     bool assets_ready = false;
     bool model_ready = false;
     bool audio_ready = false;
+    double stream_sample_rate = 48000.0;
+    double device_sample_rate = 0.0;
+    int output_channels = 2;
     std::string last_error;
 };
 
@@ -264,6 +267,9 @@ void emit_status(const EngineState& state, const std::string& message, bool ok =
         << "\"assetsReady\":" << (state.assets_ready ? "true" : "false") << ","
         << "\"modelReady\":" << (state.model_ready ? "true" : "false") << ","
         << "\"audioReady\":" << (state.audio_ready ? "true" : "false") << ","
+        << "\"streamSampleRate\":" << state.stream_sample_rate << ","
+        << "\"deviceSampleRate\":" << state.device_sample_rate << ","
+        << "\"outputChannels\":" << state.output_channels << ","
         << "\"controls\":" << object_json(state.controls, {
             "temperature", "top_k", "cfg_musiccoca", "cfg_notes", "cfg_drums",
             "density", "brightness", "tension", "rhythmicActivity", "harmonyWidth",
@@ -282,6 +288,9 @@ void emit_status(const EngineState& state, const std::string& message, bool ok =
 @interface AudioHost : NSObject
 - (instancetype)initWithRunner:(RealtimeRunner*)runner;
 - (BOOL)startWithError:(NSError**)error;
+- (double)streamSampleRate;
+- (double)deviceSampleRate;
+- (int)outputChannels;
 - (void)stop;
 @end
 
@@ -335,6 +344,21 @@ void emit_status(const EngineState& state, const std::string& message, bool ok =
     return [_audioEngine startAndReturnError:error];
 }
 
+- (double)streamSampleRate {
+    AVAudioFormat* format = [_sourceNode outputFormatForBus:0];
+    return format ? format.sampleRate : 0.0;
+}
+
+- (double)deviceSampleRate {
+    AVAudioFormat* format = [_audioEngine.outputNode outputFormatForBus:0];
+    return format ? format.sampleRate : 0.0;
+}
+
+- (int)outputChannels {
+    AVAudioFormat* format = [_sourceNode outputFormatForBus:0];
+    return format ? (int)format.channelCount : 0;
+}
+
 - (void)stop {
     [_audioEngine stop];
     _sourceNode = nil;
@@ -358,6 +382,9 @@ public:
             return false;
         }
         state_.audio_ready = true;
+        state_.stream_sample_rate = [audio_host_ streamSampleRate];
+        state_.device_sample_rate = [audio_host_ deviceSampleRate];
+        state_.output_channels = [audio_host_ outputChannels];
         return true;
     }
 

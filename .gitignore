@@ -6,7 +6,6 @@ frontend/package-lock.json
 collider/
 magenta-realtime/
 
-
 # Build output
 frontend/dist/
 
@@ -22,6 +21,8 @@ backend/.venv/
 backend/log/
 GenMusicEngine/build/
 GenMusicEngine/cmake-build-debug/
+GenMusicEngine/ninja-build/
+GenMusicEngine/xcode-build/
 
 # Python generated files
 __pycache__/
