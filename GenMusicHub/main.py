@@ -21,7 +21,7 @@ logger = logging.getLogger('GenMusicHub')
 latest_dance_state: dict[str, Any] = {}
 latest_music_state: dict[str, Any] = {}
 magenta_motion_input_enabled = False
-magenta_model_size = 'small'
+magenta_model_size = 'base'
 
 MAGENTA_MODEL_SIZES = {
     'small': 'mrt2_small',
