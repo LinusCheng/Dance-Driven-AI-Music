@@ -224,6 +224,84 @@ body {
   transition: opacity 180ms ease;
 }
 
+.gesture-action-toast {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 4;
+  display: grid;
+  gap: 3px;
+  min-width: min(330px, calc(100% - 32px));
+  max-width: calc(100% - 32px);
+  padding: 13px 18px 14px;
+  overflow: hidden;
+  text-align: center;
+  pointer-events: none;
+  border: 1px solid rgba(94, 238, 255, 0.76);
+  border-radius: 12px;
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgba(14, 23, 35, 0.94), rgba(31, 38, 55, 0.86)),
+    linear-gradient(90deg, rgba(94, 238, 255, 0.26), rgba(255, 143, 122, 0.16));
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.44),
+    0 0 30px rgba(94, 238, 255, 0.22);
+  opacity: 0;
+  transform: translate(-50%, -12px) scale(0.96);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.gesture-action-toast::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(94, 238, 255, 0.26), transparent);
+  transform: translateX(-105%);
+}
+
+.gesture-action-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.gesture-action-toast.show::before {
+  animation: gestureToastSweep 720ms ease-out;
+}
+
+.gesture-action-toast span,
+.gesture-action-toast strong {
+  position: relative;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gesture-action-toast span {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.gesture-action-toast strong {
+  font-size: 1.42rem;
+  line-height: 1.05;
+  text-transform: capitalize;
+}
+
+@keyframes gestureToastSweep {
+  from {
+    transform: translateX(-105%);
+  }
+
+  to {
+    transform: translateX(105%);
+  }
+}
+
 .side-panel {
   border-radius: 16px;
   border: 1px solid var(--line);
@@ -1170,6 +1248,51 @@ body {
   gap: 8px;
   margin-top: 8px;
   flex-wrap: wrap;
+}
+
+.temperature-control {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.temperature-control input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.temperature-control strong {
+  color: var(--text);
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 0.78rem;
+  text-align: right;
+  transition: color 160ms ease;
+}
+
+.temperature-control strong.live-control-applied {
+  color: #a8ffd7;
+}
+
+.gesture-control-strip {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.gesture-control-strip span {
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid rgba(159, 192, 226, 0.2);
+  border-radius: 8px;
+  background: rgba(7, 13, 22, 0.45);
+  overflow-wrap: anywhere;
 }
 
 .bottom-grid {

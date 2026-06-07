@@ -8,6 +8,11 @@ export function createBackendClient(ui) {
   let sendTimer = null;
   let latestMovementData = null;
   let backendDebugEnabled = false;
+  let magentaMotionInputEnabled = false;
+  let magentaModelSize = 'small';
+  let liveControls = {
+    temperature: 1.0,
+  };
   let manualPrompt = '';
   let manualClose = false;
 
@@ -55,6 +60,9 @@ export function createBackendClient(ui) {
     socket.onopen = () => {
       setStatus('RealTimeHub connected', true);
       sendBackendDebugPreference();
+      sendMagentaMotionInputPreference();
+      sendMagentaModelSizePreference();
+      sendLiveControls();
       sendManualPrompt();
       console.info('RealTimeHub WebSocket connected.');
     };
@@ -70,9 +78,27 @@ export function createBackendClient(ui) {
           ui?.setBackendDebugEnabled?.(Boolean(message.enabled));
           return;
         }
+        if (message?.type === 'gestureAction') {
+          ui?.showGestureAction?.(message.action);
+          return;
+        }
         if (message?.type === 'manualPromptStatus') {
           manualPrompt = String(message.prompt ?? '');
           ui?.setManualPromptStatus?.(manualPrompt);
+          return;
+        }
+        if (message?.type === 'magentaMotionInputStatus') {
+          magentaMotionInputEnabled = Boolean(message.enabled);
+          ui?.setMagentaMotionInputEnabled?.(magentaMotionInputEnabled);
+          return;
+        }
+        if (message?.type === 'magentaModelSizeStatus') {
+          magentaModelSize = String(message.size || 'small');
+          ui?.setMagentaModelSize?.(magentaModelSize, message.modelName);
+          return;
+        }
+        if (message?.type === 'liveControlsStatus') {
+          ui?.setLiveControlsStatus?.(message.controls, Boolean(message.applied));
           return;
         }
       } catch {
@@ -131,6 +157,39 @@ export function createBackendClient(ui) {
     }));
   }
 
+  function sendMagentaMotionInputPreference() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({
+      type: 'setMagentaMotionInput',
+      enabled: magentaMotionInputEnabled,
+    }));
+  }
+
+  function sendMagentaModelSizePreference() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({
+      type: 'setMagentaModelSize',
+      size: magentaModelSize,
+    }));
+  }
+
+  function sendLiveControls() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({
+      type: 'setLiveControls',
+      controls: liveControls,
+    }));
+  }
+
   function setManualPrompt(prompt) {
     manualPrompt = String(prompt ?? '').trim().slice(0, 280);
     ui?.setManualPromptStatus?.(manualPrompt);
@@ -145,6 +204,39 @@ export function createBackendClient(ui) {
 
   function toggleBackendDebug() {
     setBackendDebugEnabled(!backendDebugEnabled);
+  }
+
+  function setMagentaMotionInputEnabled(enabled) {
+    magentaMotionInputEnabled = Boolean(enabled);
+    ui?.setMagentaMotionInputEnabled?.(magentaMotionInputEnabled);
+    sendMagentaMotionInputPreference();
+  }
+
+  function toggleMagentaMotionInput() {
+    setMagentaMotionInputEnabled(!magentaMotionInputEnabled);
+  }
+
+  function setMagentaModelSize(size) {
+    magentaModelSize = size === 'base' ? 'base' : 'small';
+    ui?.setMagentaModelSize?.(magentaModelSize);
+    sendMagentaModelSizePreference();
+  }
+
+  function toggleMagentaModelSize() {
+    setMagentaModelSize(magentaModelSize === 'small' ? 'base' : 'small');
+  }
+
+  function setTemperature(value) {
+    const number = Number(value);
+    const temperature = Number.isFinite(number)
+      ? Math.max(0.5, Math.min(2.0, number))
+      : 1.0;
+    liveControls = {
+      ...liveControls,
+      temperature,
+    };
+    ui?.setTemperature?.(temperature);
+    sendLiveControls();
   }
 
   function startSendLoop() {
@@ -177,11 +269,19 @@ export function createBackendClient(ui) {
   connect();
   startSendLoop();
   ui?.setBackendDebugEnabled?.(backendDebugEnabled);
+  ui?.setMagentaMotionInputEnabled?.(magentaMotionInputEnabled);
+  ui?.setMagentaModelSize?.(magentaModelSize);
+  ui?.setTemperature?.(liveControls.temperature);
 
   return {
     updateMovementData,
     toggleBackendDebug,
     setBackendDebugEnabled,
+    toggleMagentaMotionInput,
+    setMagentaMotionInputEnabled,
+    toggleMagentaModelSize,
+    setMagentaModelSize,
+    setTemperature,
     setManualPrompt,
     dispose,
   };

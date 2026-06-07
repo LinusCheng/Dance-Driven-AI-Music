@@ -7,6 +7,7 @@ RealTimeHub uses `magenta-rt[mlx]` to interface with Magenta RealTime 2.
 * Python 3.12+
 * Apple Silicon Mac (M1/M2) or compatible macOS environment
 * Local Magenta model assets in `~/Documents/Magenta/magenta-rt-v2`
+* `mrt2_small` for real-time use on Apple Silicon Air models
 
 ## Install
 
@@ -28,6 +29,19 @@ pip install --upgrade pip setuptools wheel
 
 ```bash
 pip install -r requirements.txt
+```
+
+4. Download Magenta RT2 resources and models:
+
+```bash
+mrt models init
+mrt models download mrt2_small
+```
+
+Optional, higher-quality but much heavier model:
+
+```bash
+mrt models download mrt2_base
 ```
 
 ## Known path conventions
@@ -76,7 +90,8 @@ This will instantiate the available MRT2 runtime and generate a short test snipp
 ## Troubleshooting
 
 * If `magenta_rt` fails to import, make sure the virtual environment is activated and the package is installed.
-* If the model directory is not found, verify that `~/Documents/Magenta/magenta-rt-v2/models/mrt2_base` exists.
+* If the default model directory is not found, verify that `~/Documents/Magenta/magenta-rt-v2/models/mrt2_small` exists.
+* The UI can switch between `small` (`mrt2_small`) and `base` (`mrt2_base`). `small` is the default because it is the practical real-time model for Air-class Apple Silicon machines.
 * If you need to override the Magenta root, use `MAGENTA_HOME` before starting RealTimeHub.
 
 ## Notes

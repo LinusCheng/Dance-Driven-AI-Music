@@ -3,12 +3,37 @@ import logging
 import threading
 import time
 from collections import deque
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
 import sounddevice as sd
 
 logger = logging.getLogger('RealTimeHub.mrt2_realtime')
+
+
+def _clamp(value: float, minimum: float, maximum: float) -> float:
+    return max(minimum, min(maximum, value))
+
+
+def _scale(value: float, source_min: float, source_max: float, target_min: float, target_max: float) -> float:
+    if source_max == source_min:
+        return target_min
+    normalized = _clamp((value - source_min) / (source_max - source_min), 0.0, 1.0)
+    return target_min + normalized * (target_max - target_min)
+
+
+def _height_to_unit(height: Any) -> float:
+    if isinstance(height, (int, float)):
+        return _clamp(float(height), 0.0, 1.0)
+
+    normalized = str(height or 'LOW').strip().upper()
+    if normalized == 'HIGH':
+        return 1.0
+    if normalized == 'MID':
+        return 0.5
+    return 0.0
+
 
 # helper: list available audio devices
 def log_audio_devices():
@@ -32,15 +57,25 @@ class MRT2RealtimeEngine:
     - Maintains persistent model state so generation is continuous.
     """
 
-    def __init__(self, frames_per_chunk: int = 3, sample_rate: int = 16000, channels: int = 1):
+    def __init__(
+        self,
+        frames_per_chunk: int = 3,
+        sample_rate: int = 48000,
+        channels: int = 1,
+        model_size: str = 'mrt2_small',
+    ):
         self.frames_per_chunk = int(frames_per_chunk)
         self.sample_rate = int(sample_rate)
         self.channels = int(channels)
+        self.model_size = model_size
+        self._requested_model_size = model_size
 
         self.magenta = None
         self.paths = None
         self.model = None
         self.model_state = None
+        self._runtime_cls = None
+        self._runtime_name = None
 
         self._running = False
         self._gen_thread: Optional[threading.Thread] = None
@@ -65,6 +100,8 @@ class MRT2RealtimeEngine:
             'top_k': 40,
         }
         self._target_controls = dict(self._controls)
+        self._controls_lock = threading.Lock()
+        self._last_control_log_ts = 0.0
 
         # sounddevice stream
         self._stream: Optional[sd.OutputStream] = None
@@ -72,6 +109,7 @@ class MRT2RealtimeEngine:
         # underrun tracking
         self._underrun_count = 0
         self._last_underrun_log_ts = 0.0
+        self._last_model_load_error_ts = 0.0
 
     def _select_runtime_class(self):
         for name in ('MagentaRT2Mlxfn', 'MagentaRT2Mlx', 'MagentaRT2Jax'):
@@ -79,6 +117,97 @@ class MRT2RealtimeEngine:
             if cls is not None:
                 return cls, name
         return None, None
+
+    def _shutdown_model_only(self) -> None:
+        if self.model is not None and hasattr(self.model, 'shutdown'):
+            try:
+                self.model.shutdown()
+            except Exception:
+                logger.exception('MRT2RealtimeEngine: error shutting down current model')
+
+    def _model_file_exists(self, model_size: str) -> bool:
+        if self.paths is None or not hasattr(self.paths, 'models_dir'):
+            return True
+
+        model_path = Path(self.paths.models_dir()) / model_size / f'{model_size}.mlxfn'
+        return model_path.exists()
+
+    def _maybe_fallback_to_base(self, missing_model: str) -> bool:
+        fallback = 'mrt2_base'
+        if missing_model == fallback or not self._model_file_exists(fallback):
+            return False
+
+        logger.warning(
+            'MRT2RealtimeEngine: requested model %s is missing; falling back to installed %s. '
+            'Download the small realtime model with: mrt models download %s',
+            missing_model,
+            fallback,
+            missing_model,
+        )
+        self._requested_model_size = fallback
+        return True
+
+    def _log_model_load_error(self, message: str, *args, with_traceback: bool = False) -> None:
+        now = time.monotonic()
+        if now - self._last_model_load_error_ts < 30.0:
+            return
+
+        self._last_model_load_error_ts = now
+        if with_traceback:
+            logger.exception(message, *args)
+        else:
+            logger.error(message, *args)
+
+    def _load_requested_model(self) -> bool:
+        requested = self._requested_model_size
+        if self._runtime_cls is None:
+            logger.error('MRT2RealtimeEngine: cannot load %s because runtime class is unavailable', requested)
+            return False
+
+        if not self._model_file_exists(requested):
+            if self._maybe_fallback_to_base(requested):
+                return False
+            self._log_model_load_error(
+                'MRT2RealtimeEngine: model file missing for %s. Run: mrt models download %s',
+                requested,
+                requested,
+            )
+            return False
+
+        logger.info('MRT2RealtimeEngine: loading model size=%s runtime=%s', requested, self._runtime_name)
+        try:
+            next_model = self._runtime_cls(size=requested)
+            next_style_embedding = next_model.embed_style(self._prompt, use_mapper=True)
+        except Exception as e:
+            self._log_model_load_error(
+                'MRT2RealtimeEngine: failed to load model size=%s. '
+                'If missing, run: mrt models download %s',
+                requested,
+                requested,
+                with_traceback=True,
+            )
+            return False
+
+        self._shutdown_model_only()
+        self.model = next_model
+        self.model_size = requested
+        self.model_state = None
+        self._style_embedding = next_style_embedding
+        self._last_embedded_prompt = self._prompt
+        self._prompt_changed = False
+        self._clear_buffer()
+        self._model_ready.set()
+        logger.info('MRT2RealtimeEngine: model ready size=%s', self.model_size)
+        return True
+
+    def set_model_size(self, model_size: str) -> None:
+        if model_size == self._requested_model_size:
+            return
+
+        logger.info('MRT2RealtimeEngine: model switch requested %s -> %s', self._requested_model_size, model_size)
+        self._requested_model_size = model_size
+        self._model_ready.clear()
+        self._clear_buffer()
 
     def connect(self) -> None:
         """Defer model initialization to generation thread (MLX requires same thread)."""
@@ -213,37 +342,25 @@ class MRT2RealtimeEngine:
                 self._running = False
                 return
 
-            cls, name = self._select_runtime_class()
-            if cls is None:
+            self._runtime_cls, self._runtime_name = self._select_runtime_class()
+            if self._runtime_cls is None:
                 logger.error('MRT2RealtimeEngine: no supported MRT2 runtime class')
                 self._running = False
                 return
 
-            init_kwargs: Dict[str, Any] = {}
-            if self.paths is not None and hasattr(self.paths, 'DEFAULT_MODEL_NAME'):
-                init_kwargs['size'] = self.paths.DEFAULT_MODEL_NAME
-
-            logger.info('MRT2RealtimeEngine: creating runtime %s', name)
-            self.model = cls(**init_kwargs)
-            logger.info('MRT2RealtimeEngine: runtime instantiated: %s', type(self.model).__name__)
-
-            # warm initial embedding
-            try:
-                self._style_embedding = self.model.embed_style(self._prompt, use_mapper=True)
-                logger.info('MRT2RealtimeEngine: initial style embedding computed')
-            except Exception as e:
-                logger.error('MRT2RealtimeEngine: initial embed_style failed: %s', str(e))
-                self._style_embedding = None
-
-            self._model_ready.set()  # signal that model is ready
-            logger.info('MRT2RealtimeEngine: model ready, starting generation loop')
-
             # ========== GENERATION LOOP ==========
             while self._running:
+                if self.model is None or self.model_size != self._requested_model_size:
+                    if not self._load_requested_model():
+                        time.sleep(2.0)
+                        continue
+
                 # smooth control interpolation toward target
-                for k, v in self._target_controls.items():
-                    cur = self._controls.get(k, v)
-                    self._controls[k] = cur + (v - cur) * 0.25
+                with self._controls_lock:
+                    for k, v in self._target_controls.items():
+                        cur = self._controls.get(k, v)
+                        self._controls[k] = cur + (v - cur) * 0.25
+                    controls_snapshot = dict(self._controls)
 
                 # ensure style embedding is up to date if prompt changed
                 try:
@@ -264,21 +381,35 @@ class MRT2RealtimeEngine:
                     try:
                         frames = self.frames_per_chunk
                         logger.debug('MRT2RealtimeEngine: generating %d frames (buffer %.2fs < %.2fs target)', frames, buf_secs, min_buffer_seconds)
-                        logger.debug('MRT2RealtimeEngine: calling model.generate with controls: %s', self._controls)
+                        logger.debug('MRT2RealtimeEngine: calling model.generate with controls: %s', controls_snapshot)
                         
                         wav, state = self.model.generate(
                             style=self._style_embedding,
-                            cfg_musiccoca=self._controls.get('cfg_musiccoca'),
-                            cfg_notes=self._controls.get('cfg_notes'),
-                            cfg_drums=self._controls.get('cfg_drums'),
-                            temperature=self._controls.get('temperature'),
-                            top_k=int(self._controls.get('top_k', 40)),
+                            cfg_musiccoca=controls_snapshot.get('cfg_musiccoca'),
+                            cfg_notes=controls_snapshot.get('cfg_notes'),
+                            cfg_drums=controls_snapshot.get('cfg_drums'),
+                            temperature=controls_snapshot.get('temperature'),
+                            top_k=int(controls_snapshot.get('top_k', 40)),
                             frames=frames,
                             state=self.model_state,
                         )
                         self.model_state = state
                         gen_count += 1
                         fail_count = 0
+
+                        wav_sample_rate = int(getattr(wav, 'sample_rate', self.sample_rate))
+                        if wav_sample_rate != self.sample_rate:
+                            logger.warning(
+                                'MRT2RealtimeEngine: resampling generated audio from %d Hz to stream rate %d Hz',
+                                wav_sample_rate,
+                                self.sample_rate,
+                            )
+                            if hasattr(wav, 'resample'):
+                                wav = wav.resample(self.sample_rate)
+                            else:
+                                raise RuntimeError(
+                                    f'Generated sample rate {wav_sample_rate} does not match stream rate {self.sample_rate}'
+                                )
 
                         # extract samples from Waveform
                         samples = np.array(wav.samples, dtype='float32')
@@ -335,6 +466,64 @@ class MRT2RealtimeEngine:
             logger.info('MRT2RealtimeEngine: generate loop exiting (generated %d chunks, %d failures)', gen_count, fail_count)
             self._model_ready.set()  # ensure ready event is set even on failure
 
+    def update_live_controls(self, controls: Dict[str, Any]) -> None:
+        next_controls = {}
+
+        if 'temperature' in controls:
+            next_controls['temperature'] = _clamp(float(controls['temperature']), 0.5, 2.0)
+        if 'top_k' in controls:
+            next_controls['top_k'] = int(round(_clamp(float(controls['top_k']), 10.0, 500.0)))
+        if 'cfg_musiccoca' in controls:
+            next_controls['cfg_musiccoca'] = _clamp(float(controls['cfg_musiccoca']), 0.5, 5.0)
+        if 'cfg_notes' in controls:
+            next_controls['cfg_notes'] = _clamp(float(controls['cfg_notes']), 0.1, 6.0)
+        if 'cfg_drums' in controls:
+            next_controls['cfg_drums'] = _clamp(float(controls['cfg_drums']), 0.1, 6.0)
+
+        if not next_controls:
+            return
+
+        with self._controls_lock:
+            self._target_controls.update(next_controls)
+
+        logger.info(
+            'MRT2RealtimeEngine: live controls updated %s',
+            ', '.join(f'{key}={value}' for key, value in next_controls.items()),
+        )
+
+    def update_motion_controls(self, music_state: Dict[str, Any]) -> None:
+        self._apply_motion_controls(music_state, include_density_controls=False)
+
+    def _apply_motion_controls(self, music_state: Dict[str, Any], include_density_controls: bool) -> None:
+        right_height = _height_to_unit(music_state.get('rightArmHeight', 'LOW'))
+        left_height = _height_to_unit(music_state.get('leftArmHeight', 'LOW'))
+        live_motion_controls = {
+            'cfg_musiccoca': _scale(left_height, 0.0, 1.0, 0.5, 5.0),
+            'top_k': int(round(_scale(right_height, 0.0, 1.0, 10.0, 500.0))),
+        }
+
+        if include_density_controls:
+            live_motion_controls.update({
+                'cfg_notes': 1.0 + float(music_state.get('density', 0.0)) * 2.0,
+                'cfg_drums': 1.0 + float(music_state.get('rhythmicActivity', 0.0)) * 2.0,
+            })
+
+        with self._controls_lock:
+            self._target_controls.update(live_motion_controls)
+            target_temperature = float(self._target_controls.get('temperature', 1.0))
+
+        now = time.monotonic()
+        if now - self._last_control_log_ts >= 1.0:
+            logger.info(
+                'MRT2RealtimeEngine: motion controls rightArm=%.2f -> top_k=%d, leftArm=%.2f -> cfg_musiccoca=%.2f, temperature=%.2f',
+                right_height,
+                live_motion_controls['top_k'],
+                left_height,
+                live_motion_controls['cfg_musiccoca'],
+                target_temperature,
+            )
+            self._last_control_log_ts = now
+
     def update_music_state(self, music_state: Dict[str, Any]) -> None:
         # translate music_state to prompt and control values
         manual_prompt = str(music_state.get('manualPrompt') or '').strip()
@@ -365,30 +554,37 @@ class MRT2RealtimeEngine:
             else:
                 logger.info('MRT2RealtimeEngine: style prompt changed without clearing audio buffer')
         self._last_manual_prompt = manual_prompt
-        # target numeric controls
-        self._target_controls['cfg_musiccoca'] = 1.0 + float(music_state.get('tension', 0.0)) * 2.0
-        self._target_controls['cfg_notes'] = 1.0 + float(music_state.get('density', 0.0)) * 2.0
-        self._target_controls['cfg_drums'] = 1.0 + float(music_state.get('rhythmicActivity', 0.0)) * 2.0
-        self._target_controls['temperature'] = 0.8 + float(music_state.get('tension', 0.0)) * 0.8
-        self._target_controls['top_k'] = max(1, min(80, 20 + int(float(music_state.get('harmonyWidth', 0.0)) * 30)))
+        self._apply_motion_controls(music_state, include_density_controls=True)
 
         logger.debug('MRT2RealtimeEngine: prompt updated: %s', self._prompt)
 
     def get_debug_state(self) -> Dict[str, Any]:
+        with self._controls_lock:
+            target_controls = dict(self._target_controls)
+            current_controls = dict(self._controls)
+
         return {
             'prompt': self._prompt,
             'controls': {
-                'cfgMusicCoca': round(float(self._target_controls.get('cfg_musiccoca', 0.0)), 3),
-                'cfgNotes': round(float(self._target_controls.get('cfg_notes', 0.0)), 3),
-                'cfgDrums': round(float(self._target_controls.get('cfg_drums', 0.0)), 3),
-                'temperature': round(float(self._target_controls.get('temperature', 0.0)), 3),
-                'topK': int(self._target_controls.get('top_k', 0)),
+                'cfgMusicCoca': round(float(target_controls.get('cfg_musiccoca', 0.0)), 3),
+                'cfgNotes': round(float(target_controls.get('cfg_notes', 0.0)), 3),
+                'cfgDrums': round(float(target_controls.get('cfg_drums', 0.0)), 3),
+                'temperature': round(float(target_controls.get('temperature', 0.0)), 3),
+                'topK': int(target_controls.get('top_k', 0)),
+                'currentCfgMusicCoca': round(float(current_controls.get('cfg_musiccoca', 0.0)), 3),
+                'currentTemperature': round(float(current_controls.get('temperature', 0.0)), 3),
+                'currentTopK': int(current_controls.get('top_k', 0)),
             },
             'audio': {
                 'bufferSeconds': round(self._current_buffer_seconds(), 2),
                 'underruns': self._underrun_count,
                 'running': self._running,
                 'modelReady': self._model_ready.is_set(),
+            },
+            'model': {
+                'size': self.model_size,
+                'requestedSize': self._requested_model_size,
+                'runtime': self._runtime_name,
             },
         }
 

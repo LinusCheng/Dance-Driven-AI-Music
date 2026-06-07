@@ -86,6 +86,8 @@ def dance_to_music_state(
         'manualPrompt': style_state.get('manualPrompt', '') if style_state else '',
         'gestureSequence': style_state.get('lastSequence') if style_state else None,
         'gestureEvent': _gesture_event(dance_state.get('gestureLeft', ''), dance_state.get('gestureRight', '')),
+        'leftArmHeight': dance_state.get('leftArmHeight', 'LOW'),
+        'rightArmHeight': dance_state.get('rightArmHeight', 'LOW'),
         'promptHints': _prompt_hints({
             'normalizedEnergy': normalized_energy,
             'openness': openness,

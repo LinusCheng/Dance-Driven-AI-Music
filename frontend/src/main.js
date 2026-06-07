@@ -33,6 +33,10 @@ document.querySelector('#app').innerHTML = `
         <div class="video-wrap">
           <video id="webcam" autoplay playsinline muted></video>
           <canvas id="overlay"></canvas>
+          <div id="gestureActionToast" class="gesture-action-toast" aria-live="polite">
+            <span id="gestureActionTitle">Gesture action</span>
+            <strong id="gestureActionValue">Ready</strong>
+          </div>
           <div id="stageMessage" class="stage-message">Waiting for camera permission...</div>
         </div>
       </section>
@@ -134,8 +138,20 @@ document.querySelector('#app').innerHTML = `
         </div>
         <textarea id="manualPromptInput" class="manual-prompt-input" rows="4" maxlength="280" placeholder="acid house with bright stabs and punchy drums"></textarea>
         <div class="manual-prompt-actions">
+          <button id="toggleMagentaModelSize" class="backend-debug-toggle active" type="button" aria-pressed="true">Model: small</button>
+          <button id="toggleMagentaMotionInput" class="backend-debug-toggle" type="button" aria-pressed="false">Prompt only</button>
           <button id="sendManualPrompt" class="backend-debug-toggle" type="button">Send prompt</button>
           <button id="clearManualPrompt" class="backend-debug-toggle" type="button">Clear</button>
+        </div>
+        <label class="temperature-control" for="temperatureSlider">
+          <span>Temperature</span>
+          <input id="temperatureSlider" type="range" min="0.5" max="2" step="0.05" value="1" />
+          <strong id="temperatureValue">1.00</strong>
+        </label>
+        <div class="gesture-control-strip" aria-label="Gesture controls">
+          <span>Genre next: both hands point</span>
+          <span>BPM up: openPalm + point</span>
+          <span>BPM down: openPalm + fist</span>
         </div>
       </section>
     </main>
@@ -223,6 +239,15 @@ const backendClient = createBackendClient(ui);
 const sunoHubClient = createSunoHubClient(document);
 ui.onBackendDebugToggle(() => {
   backendClient.toggleBackendDebug();
+});
+ui.onMagentaMotionInputToggle(() => {
+  backendClient.toggleMagentaMotionInput();
+});
+ui.onMagentaModelSizeToggle(() => {
+  backendClient.toggleMagentaModelSize();
+});
+ui.onTemperatureChange((value) => {
+  backendClient.setTemperature(value);
 });
 ui.onManualPromptSubmit((prompt) => {
   backendClient.setManualPrompt(prompt);

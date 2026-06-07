@@ -188,13 +188,13 @@ These mappings are expected to evolve throughout development and experimentation
 
 ## Gesture Sequence Controls
 
-RealTimeHub includes an experimental three-gesture sequence detector. A gesture must be stable briefly before it is accepted, and controls have cooldowns so the style does not flicker.
+RealTimeHub includes an experimental gesture sequence detector. A gesture must be stable briefly before it is accepted, and controls have cooldowns so the style does not flicker.
 
-You only need to remember one genre sequence and two two-hand BPM controls:
+You only need to remember one two-hand genre control and two two-hand BPM controls:
 
 | Gesture control | Action |
 | --- | --- |
-| `openPalm -> peace -> fist` | Cycle to the next genre |
+| both hands `point` | Cycle to the next genre |
 | one hand `openPalm` + other hand `point` | Increase BPM by 5 |
 | one hand `openPalm` + other hand `fist` | Decrease BPM by 5 |
 
@@ -211,6 +211,26 @@ RealTimeHub attempts to load Magenta RT2 when available and falls back to mock m
 * Initialization fails
 
 The system should remain functional even without Magenta.
+
+The realtime engine defaults to the `small` model (`mrt2_small`) because it is designed for real-time use on Apple Silicon Air models. The frontend Prompt panel includes a model switch for:
+
+| UI model | Magenta model |
+| --- | --- |
+| `small` | `mrt2_small` |
+| `base` | `mrt2_base` |
+
+Download the default model with:
+
+```bash
+mrt models init
+mrt models download mrt2_small
+```
+
+Download `base` only if your machine can handle it in real time:
+
+```bash
+mrt models download mrt2_base
+```
 
 ## Future Outputs
 

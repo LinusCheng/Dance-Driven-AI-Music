@@ -11,7 +11,7 @@ def _clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
 
 
 class MagentaEngine:
-    def __init__(self, use_mock: bool = False, update_interval: float = 0.5) -> None:
+    def __init__(self, use_mock: bool = False, update_interval: float = 0.5, model_size: str = 'mrt2_small') -> None:
         self.use_mock = use_mock
         self.available = False
         self.magenta_module = None
@@ -19,6 +19,7 @@ class MagentaEngine:
         self.model_state = None
         self.last_update_ts = 0.0
         self.update_interval = update_interval
+        self.model_size = model_size
         self.model_class_name = None
         self.paths = None
         self._load_module()
@@ -74,17 +75,13 @@ class MagentaEngine:
             return
 
         try:
-            model_size = None
-            if self.paths is not None and hasattr(self.paths, 'DEFAULT_MODEL_NAME'):
-                model_size = self.paths.DEFAULT_MODEL_NAME
-
             init_kwargs: Dict[str, Any] = {}
-            if model_size is not None:
-                init_kwargs['size'] = model_size
+            if self.model_size:
+                init_kwargs['size'] = self.model_size
 
             self.model = model_class(**init_kwargs)
             self.available = True
-            logger.info('MagentaEngine: connected to local MRT2 model using %s.', self.model_class_name)
+            logger.info('MagentaEngine: connected to local MRT2 model using %s size=%s.', self.model_class_name, self.model_size)
         except Exception as error:
             logger.exception('MagentaEngine: failed to initialize MRT2 model: %s', error)
             self.use_mock = True

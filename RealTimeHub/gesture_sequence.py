@@ -1,11 +1,12 @@
+import logging
 import time
 from collections import deque
-from typing import Any, Deque, Dict, Optional, Tuple
+from typing import Any, Deque, Dict, Optional
 
 
-GestureSequence = Tuple[str, str, str]
+logger = logging.getLogger('RealTimeHub.gesture_sequence')
 
-GENRE_NEXT_SEQUENCE: GestureSequence = ('openPalm', 'peace', 'fist')
+GENRE_NEXT_PAIR = frozenset(('point',))
 BPM_UP_PAIR = frozenset(('openPalm', 'point'))
 BPM_DOWN_PAIR = frozenset(('openPalm', 'fist'))
 
@@ -72,7 +73,7 @@ class GestureSequenceDetector:
         self.bpm = 120
         self.last_genre_change_ts = 0.0
         self.last_bpm_change_ts = 0.0
-        self._last_matched_sequence: Optional[GestureSequence] = None
+        self._last_genre_cooldown_log_ts = 0.0
         self._candidate_gesture: Optional[str] = None
         self._candidate_started_ts = 0.0
         self._last_accepted_gesture: Optional[str] = None
@@ -84,11 +85,16 @@ class GestureSequenceDetector:
 
         if accepted_event is not None:
             self.events.append(accepted_event)
+            logger.info(
+                'Gesture accepted: %s recent=%s',
+                accepted_event['gesture'],
+                ' -> '.join(event['gesture'] for event in self.events),
+            )
 
         self._trim(now)
-        matched = self._detect_bpm_pair(dance_state, now)
+        matched = self._detect_two_hand_genre_pair(dance_state, now)
         if matched is None:
-            matched = self._detect_genre_sequence(now)
+            matched = self._detect_bpm_pair(dance_state, now)
 
         return {
             'genre': self.current_genre,
@@ -113,6 +119,7 @@ class GestureSequenceDetector:
         if gesture == 'none':
             self._candidate_gesture = None
             self._candidate_started_ts = 0.0
+            self._last_accepted_gesture = None
             return None
 
         if gesture != self._candidate_gesture:
@@ -133,31 +140,16 @@ class GestureSequenceDetector:
         while self.events and now - float(self.events[0]['timestamp']) > self.window_seconds:
             self.events.popleft()
 
-    def _detect_genre_sequence(self, now: float) -> Optional[dict[str, Any]]:
-        if len(self.events) < 3:
+    def _detect_two_hand_genre_pair(self, dance_state: dict[str, Any], now: float) -> Optional[dict[str, Any]]:
+        left = str(dance_state.get('gestureLeft') or 'none')
+        right = str(dance_state.get('gestureRight') or 'none')
+
+        if left == 'none' or right == 'none' or left != right:
             return None
 
-        sequence = tuple(event['gesture'] for event in list(self.events)[-3:])
-        if sequence == self._last_matched_sequence:
-            return None
-
-        if sequence == GENRE_NEXT_SEQUENCE:
-            if now - self.last_genre_change_ts < self.genre_cooldown_seconds:
-                return None
-
-            self._last_matched_sequence = sequence
-            self.genre_index = (self.genre_index + 1) % len(GENRE_PRESETS)
-            preset = GENRE_PRESETS[self.genre_index]
-            self.current_genre = preset['genre']
-            self.current_genre_prompt = preset['prompt']
-            self.last_genre_change_ts = now
-
-            return {
-                'name': 'genre_next',
-                'sequence': list(sequence),
-                'genre': self.current_genre,
-                'prompt': self.current_genre_prompt,
-            }
+        pair = frozenset((left, right))
+        if pair == GENRE_NEXT_PAIR:
+            return self._change_genre(now, {'gesturePair': [left, right], 'source': 'two_hand_pair'})
 
         return None
 
@@ -182,9 +174,42 @@ class GestureSequenceDetector:
 
         self.bpm = max(70, min(170, self.bpm + amount))
         self.last_bpm_change_ts = now
+        logger.info('BPM gesture matched: pair=%s bpm=%s amount=%+d', sorted(gesture_pair), self.bpm, amount)
         return {
             'name': 'bpm_change',
             'gesturePair': sorted(gesture_pair),
             'bpm': self.bpm,
             'amount': amount,
+        }
+
+    def _change_genre(self, now: float, details: dict[str, Any]) -> Optional[dict[str, Any]]:
+        seconds_since_change = now - self.last_genre_change_ts
+        if seconds_since_change < self.genre_cooldown_seconds:
+            if now - self._last_genre_cooldown_log_ts >= 1.0:
+                logger.info(
+                    'Genre gesture matched but cooling down: source=%s wait=%.1fs',
+                    details.get('source', 'unknown'),
+                    self.genre_cooldown_seconds - seconds_since_change,
+                )
+                self._last_genre_cooldown_log_ts = now
+            return None
+
+        self.genre_index = (self.genre_index + 1) % len(GENRE_PRESETS)
+        preset = GENRE_PRESETS[self.genre_index]
+        self.current_genre = preset['genre']
+        self.current_genre_prompt = preset['prompt']
+        self.last_genre_change_ts = now
+
+        logger.info(
+            'Genre gesture matched: source=%s genre=%s prompt=%s',
+            details.get('source', 'unknown'),
+            self.current_genre,
+            self.current_genre_prompt,
+        )
+
+        return {
+            'name': 'genre_next',
+            **details,
+            'genre': self.current_genre,
+            'prompt': self.current_genre_prompt,
         }

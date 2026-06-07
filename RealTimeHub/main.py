@@ -23,6 +23,13 @@ logger = logging.getLogger('RealTimeHub')
 
 latest_dance_state: dict[str, Any] = {}
 latest_music_state: dict[str, Any] = {}
+magenta_motion_input_enabled = False
+magenta_model_size = 'small'
+
+MAGENTA_MODEL_SIZES = {
+    'small': 'mrt2_small',
+    'base': 'mrt2_base',
+}
 
 smoother = ExponentialSmoother(alpha=0.32)
 gesture_sequence_detector = GestureSequenceDetector()
@@ -35,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--mock-magenta', action='store_true', help='Force mock Magenta mode.')
     parser.add_argument('--test-magenta', action='store_true', help='Run a short Magenta test and exit.')
     parser.add_argument('--engine', default='mrt2', help='Music engine: "mrt2" (realtime, default) or "batch" (WAV files).')
+    parser.add_argument('--model-size', choices=('small', 'base'), default='small', help='Magenta RT2 model size to load.')
     parser.add_argument('--verbose', action='store_true', help='Show full dance/music payloads and engine diagnostics.')
     return parser.parse_args()
 
@@ -76,6 +84,26 @@ def log_feature_summary(dance_state: dict[str, Any], music_state: dict[str, Any]
     )
 
 
+def build_prompt_only_music_state(prompt: str) -> dict[str, Any]:
+    prompt = prompt.strip()
+    return {
+        'density': 0.35,
+        'brightness': 0.65,
+        'tension': 0.12,
+        'rhythmicActivity': 0.35,
+        'harmonyWidth': 0.65,
+        'genre': 'manual',
+        'bpm': 120,
+        'gestureEvent': 'none',
+        'manualPrompt': prompt,
+        'promptHints': [prompt] if prompt else [],
+    }
+
+
+def model_name_for_size(size: str) -> str:
+    return MAGENTA_MODEL_SIZES.get(size, MAGENTA_MODEL_SIZES['small'])
+
+
 def build_debug_payload(dance_state: dict[str, Any], music_state: dict[str, Any]) -> dict[str, Any]:
     engine_state = {}
     if magenta_engine is not None and hasattr(magenta_engine, 'get_debug_state'):
@@ -108,11 +136,23 @@ def build_debug_payload(dance_state: dict[str, Any], music_state: dict[str, Any]
             'gestureSequence': music_state.get('gestureSequence'),
         },
         'mrt2': engine_state,
+        'settings': {
+            'magentaMotionInputEnabled': magenta_motion_input_enabled,
+            'magentaModelSize': magenta_model_size,
+            'magentaModelName': model_name_for_size(magenta_model_size),
+        },
+    }
+
+
+def build_gesture_action_payload(action: dict[str, Any]) -> dict[str, Any]:
+    return {
+        'type': 'gestureAction',
+        'action': action,
     }
 
 
 async def maybe_send_debug_payload(
-    websocket: websockets.WebSocketServerProtocol,
+    websocket: Any,
     dance_state: dict[str, Any],
     music_state: dict[str, Any],
     last_sent_ts: float,
@@ -126,7 +166,9 @@ async def maybe_send_debug_payload(
     return now
 
 
-async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> None:
+async def handle_connection(websocket: Any) -> None:
+    global magenta_motion_input_enabled, magenta_model_size
+
     client_address = websocket.remote_address
     backend_debug_enabled = False
     last_debug_send_ts = 0.0
@@ -154,16 +196,75 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
                 }))
                 continue
 
+            if isinstance(payload, dict) and payload.get('type') == 'setMagentaMotionInput':
+                magenta_motion_input_enabled = bool(payload.get('enabled'))
+                if not magenta_motion_input_enabled and manual_prompt and magenta_engine is not None:
+                    prompt_music_state = build_prompt_only_music_state(manual_prompt)
+                    latest_music_state.update(prompt_music_state)
+                    if hasattr(magenta_engine, 'last_update_ts'):
+                        magenta_engine.last_update_ts = 0.0
+                    magenta_engine.update_music_state(prompt_music_state)
+                await websocket.send(json.dumps({
+                    'type': 'magentaMotionInputStatus',
+                    'enabled': magenta_motion_input_enabled,
+                }))
+                logger.info(
+                    'Magenta motion input %s; %s',
+                    'enabled' if magenta_motion_input_enabled else 'disabled',
+                    'body motion controls Magenta' if magenta_motion_input_enabled else 'manual prompt controls Magenta only',
+                )
+                continue
+
+            if isinstance(payload, dict) and payload.get('type') == 'setMagentaModelSize':
+                requested_size = str(payload.get('size') or 'small').lower()
+                if requested_size not in MAGENTA_MODEL_SIZES:
+                    requested_size = 'small'
+                magenta_model_size = requested_size
+                model_name = model_name_for_size(magenta_model_size)
+                if magenta_engine is not None and hasattr(magenta_engine, 'set_model_size'):
+                    magenta_engine.set_model_size(model_name)
+                await websocket.send(json.dumps({
+                    'type': 'magentaModelSizeStatus',
+                    'size': magenta_model_size,
+                    'modelName': model_name,
+                }))
+                logger.info('Magenta model size set to %s (%s)', magenta_model_size, model_name)
+                continue
+
+            if isinstance(payload, dict) and payload.get('type') == 'setLiveControls':
+                controls = payload.get('controls')
+                if not isinstance(controls, dict):
+                    controls = {}
+                applied = False
+                if magenta_engine is not None and hasattr(magenta_engine, 'update_live_controls'):
+                    try:
+                        magenta_engine.update_live_controls(controls)
+                        applied = True
+                    except (TypeError, ValueError) as error:
+                        logger.warning('Invalid live controls payload: %s', error)
+                await websocket.send(json.dumps({
+                    'type': 'liveControlsStatus',
+                    'applied': applied,
+                    'controls': controls,
+                }))
+                logger.info('Live controls %s: %s', 'applied' if applied else 'ignored', controls)
+                continue
+
             if isinstance(payload, dict) and payload.get('type') == 'setManualPrompt':
                 manual_prompt = str(payload.get('prompt') or '').strip()[:280]
-                if latest_music_state:
-                    latest_music_state['manualPrompt'] = manual_prompt
-                    if manual_prompt:
-                        latest_music_state['promptHints'] = [manual_prompt]
-                    if magenta_engine is not None:
-                        if hasattr(magenta_engine, 'last_update_ts'):
-                            magenta_engine.last_update_ts = 0.0
-                        magenta_engine.update_music_state(latest_music_state)
+                prompt_music_state = (
+                    build_prompt_only_music_state(manual_prompt)
+                    if not magenta_motion_input_enabled
+                    else dict(latest_music_state)
+                )
+                if magenta_motion_input_enabled:
+                    prompt_music_state['manualPrompt'] = manual_prompt
+                    prompt_music_state['promptHints'] = [manual_prompt] if manual_prompt else []
+                latest_music_state.update(prompt_music_state)
+                if magenta_engine is not None:
+                    if hasattr(magenta_engine, 'last_update_ts'):
+                        magenta_engine.last_update_ts = 0.0
+                    magenta_engine.update_music_state(prompt_music_state)
                 await websocket.send(json.dumps({
                     'type': 'manualPromptStatus',
                     'prompt': manual_prompt,
@@ -190,7 +291,16 @@ async def handle_connection(websocket: websockets.WebSocketServerProtocol) -> No
             logger.debug('danceState %s', smoothed)
             logger.debug('musicState %s', music_state)
             if magenta_engine is not None:
-                magenta_engine.update_music_state(music_state)
+                if magenta_motion_input_enabled:
+                    magenta_engine.update_music_state(music_state)
+                elif hasattr(magenta_engine, 'update_motion_controls'):
+                    magenta_engine.update_motion_controls(music_state)
+
+            gesture_action = music_state.get('gestureSequence')
+            if isinstance(gesture_action, dict):
+                await websocket.send(json.dumps(build_gesture_action_payload(gesture_action)))
+                logger.info('Gesture action sent to UI: %s', gesture_action.get('name', 'unknown'))
+
             if backend_debug_enabled:
                 last_debug_send_ts = await maybe_send_debug_payload(
                     websocket,
@@ -221,26 +331,28 @@ async def run_server() -> None:
 
 
 def main() -> int:
-    global magenta_engine
+    global magenta_engine, magenta_model_size
     args = parse_args()
     configure_logging(args.verbose)
+    magenta_model_size = args.model_size
+    selected_model_name = model_name_for_size(magenta_model_size)
 
     # select engine implementation
     engine_name = args.engine
     if engine_name == 'mrt2':
         try:
             from music_engines.mrt2_realtime_engine import MRT2RealtimeEngine
-            magenta_engine = MRT2RealtimeEngine()
+            magenta_engine = MRT2RealtimeEngine(model_size=selected_model_name)
             magenta_engine.connect()
             magenta_engine.start_stream()
-            logger.info('RealTimeHub: realtime MRT2 audio streaming enabled')
+            logger.info('RealTimeHub: realtime MRT2 audio streaming enabled with model=%s', selected_model_name)
         except Exception as e:
             logger.exception('Failed to start MRT2RealtimeEngine: %s', e)
             logger.info('Falling back to batch mode (WAV generation)')
-            magenta_engine = MagentaEngine(use_mock=args.mock_magenta)
+            magenta_engine = MagentaEngine(use_mock=args.mock_magenta, model_size=selected_model_name)
     else:
         # 'batch' mode or any other option
-        magenta_engine = MagentaEngine(use_mock=args.mock_magenta)
+        magenta_engine = MagentaEngine(use_mock=args.mock_magenta, model_size=selected_model_name)
         if args.test_magenta:
             output_path = magenta_engine.generate_test_audio(duration_seconds=4.0)
             magenta_engine.shutdown()

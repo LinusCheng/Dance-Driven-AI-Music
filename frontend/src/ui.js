@@ -27,6 +27,9 @@ export function createUI(root) {
   const statusText = root.getElementById('statusText');
   const fpsValue = root.getElementById('fpsValue');
   const stageMessage = root.getElementById('stageMessage');
+  const gestureActionToast = root.getElementById('gestureActionToast');
+  const gestureActionTitle = root.getElementById('gestureActionTitle');
+  const gestureActionValue = root.getElementById('gestureActionValue');
   const retryCameraBtn = root.getElementById('retryCameraBtn');
   const backendStatus = root.getElementById('backendStatus');
   const backendDebugAge = root.getElementById('backendDebugAge');
@@ -38,6 +41,10 @@ export function createUI(root) {
   const sendManualPrompt = root.getElementById('sendManualPrompt');
   const clearManualPrompt = root.getElementById('clearManualPrompt');
   const manualPromptStatus = root.getElementById('manualPromptStatus');
+  const toggleMagentaMotionInput = root.getElementById('toggleMagentaMotionInput');
+  const toggleMagentaModelSize = root.getElementById('toggleMagentaModelSize');
+  const temperatureSlider = root.getElementById('temperatureSlider');
+  const temperatureValue = root.getElementById('temperatureValue');
 
   const energyValue = root.getElementById('energyValue');
   const opennessValue = root.getElementById('opennessValue');
@@ -81,8 +88,13 @@ export function createUI(root) {
 
   let retryHandler = null;
   let backendDebugToggleHandler = null;
+  let magentaMotionInputToggleHandler = null;
+  let magentaModelSizeToggleHandler = null;
+  let temperatureChangeHandler = null;
   let manualPromptSubmitHandler = null;
   let manualPromptClearHandler = null;
+  let magentaMotionInputEnabled = false;
+  let gestureActionTimer = null;
 
   let previous = {
     leftArmHeight: 'LOW',
@@ -105,6 +117,59 @@ export function createUI(root) {
     while (eventLog.children.length > MAX_EVENTS) {
       eventLog.removeChild(eventLog.lastChild);
     }
+  }
+
+  function gestureActionText(action) {
+    if (action?.name === 'genre_next') {
+      const genre = String(action.genre || 'next genre').replaceAll('_', ' ');
+      return {
+        title: 'Genre changed',
+        value: genre,
+      };
+    }
+
+    if (action?.name === 'bpm_change') {
+      const amount = Number(action.amount ?? 0);
+      const bpm = action.bpm == null ? '-- BPM' : `${action.bpm} BPM`;
+      return {
+        title: amount >= 0 ? 'BPM up' : 'BPM down',
+        value: bpm,
+      };
+    }
+
+    return {
+      title: 'Gesture action',
+      value: 'Triggered',
+    };
+  }
+
+  function showGestureAction(action) {
+    if (!gestureActionToast) {
+      return;
+    }
+
+    const text = gestureActionText(action);
+    if (gestureActionTitle) {
+      gestureActionTitle.textContent = text.title;
+    }
+    if (gestureActionValue) {
+      gestureActionValue.textContent = text.value;
+    }
+
+    gestureActionToast.classList.remove('show');
+    window.requestAnimationFrame(() => {
+      gestureActionToast.classList.add('show');
+    });
+
+    if (gestureActionTimer) {
+      window.clearTimeout(gestureActionTimer);
+    }
+
+    gestureActionTimer = window.setTimeout(() => {
+      gestureActionToast.classList.remove('show');
+    }, 2200);
+
+    pushEvent(`${text.title}: ${text.value}`);
   }
 
   function applyBodyMapVisuals(metricState) {
@@ -295,6 +360,7 @@ export function createUI(root) {
     const features = debugState?.features ?? {};
     const music = debugState?.music ?? {};
     const mrt2 = debugState?.mrt2 ?? {};
+    const settings = debugState?.settings ?? {};
     const controls = mrt2.controls ?? {};
     const audio = mrt2.audio ?? {};
 
@@ -322,16 +388,20 @@ export function createUI(root) {
         `density ${formatNumber(music.density)} | brightness ${formatNumber(music.brightness)} | ` +
         `tension ${formatNumber(music.tension)} | rhythm ${formatNumber(music.rhythm)} | ` +
         `width ${formatNumber(music.width)} | genre ${music.genre ?? 'adaptive'} | ` +
-        `bpm ${music.bpm ?? '--'} | event ${music.event ?? 'none'}${promptMode}${gestureControlText}`;
+        `bpm ${music.bpm ?? '--'} | event ${music.event ?? 'none'} | ` +
+        `motion ${settings.magentaMotionInputEnabled === false ? 'off' : 'on'} | ` +
+        `model ${settings.magentaModelSize ?? 'small'}${promptMode}${gestureControlText}`;
     }
 
     if (backendMrt2Summary) {
+      const model = mrt2.model ?? {};
       const prompt = mrt2.prompt ? `"${mrt2.prompt}"` : 'no prompt yet';
       const buffer = audio.bufferSeconds == null ? '--' : `${formatNumber(audio.bufferSeconds)}s`;
       const underruns = audio.underruns ?? '--';
       const ready = audio.modelReady ? 'ready' : 'warming';
       backendMrt2Summary.textContent =
-        `${prompt} | notes ${formatNumber(controls.cfgNotes)} | drums ${formatNumber(controls.cfgDrums)} | ` +
+        `${prompt} | ${model.requestedSize ?? model.size ?? 'mrt2_small'} | ` +
+        `coca ${formatNumber(controls.cfgMusicCoca)} | notes ${formatNumber(controls.cfgNotes)} | drums ${formatNumber(controls.cfgDrums)} | ` +
         `temp ${formatNumber(controls.temperature)} | topK ${controls.topK ?? '--'} | ` +
         `buffer ${buffer} | underruns ${underruns} | ${ready}`;
     }
@@ -375,13 +445,112 @@ export function createUI(root) {
     toggleBackendDebug.addEventListener('click', backendDebugToggleHandler);
   }
 
+  function setMagentaMotionInputEnabled(enabled) {
+    magentaMotionInputEnabled = Boolean(enabled);
+    if (!toggleMagentaMotionInput) {
+      return;
+    }
+
+    toggleMagentaMotionInput.textContent = magentaMotionInputEnabled ? 'Motion to Magenta on' : 'Prompt only';
+    toggleMagentaMotionInput.setAttribute('aria-pressed', String(magentaMotionInputEnabled));
+    toggleMagentaMotionInput.classList.toggle('active', magentaMotionInputEnabled);
+    if (manualPromptStatus) {
+      manualPromptStatus.textContent = magentaMotionInputEnabled
+        ? (manualPromptInput?.value.trim() ? 'manual prompt active' : 'movement prompt')
+        : 'prompt only';
+    }
+  }
+
+  function onMagentaMotionInputToggle(handler) {
+    if (!toggleMagentaMotionInput) {
+      return;
+    }
+
+    if (magentaMotionInputToggleHandler) {
+      toggleMagentaMotionInput.removeEventListener('click', magentaMotionInputToggleHandler);
+    }
+
+    magentaMotionInputToggleHandler = handler;
+    toggleMagentaMotionInput.addEventListener('click', magentaMotionInputToggleHandler);
+  }
+
+  function setMagentaModelSize(size, modelName) {
+    if (!toggleMagentaModelSize) {
+      return;
+    }
+
+    const nextSize = size === 'base' ? 'base' : 'small';
+    toggleMagentaModelSize.textContent = `Model: ${nextSize}`;
+    toggleMagentaModelSize.setAttribute('aria-pressed', String(nextSize === 'small'));
+    toggleMagentaModelSize.classList.toggle('active', nextSize === 'small');
+    toggleMagentaModelSize.title = modelName || (nextSize === 'small' ? 'mrt2_small' : 'mrt2_base');
+  }
+
+  function onMagentaModelSizeToggle(handler) {
+    if (!toggleMagentaModelSize) {
+      return;
+    }
+
+    if (magentaModelSizeToggleHandler) {
+      toggleMagentaModelSize.removeEventListener('click', magentaModelSizeToggleHandler);
+    }
+
+    magentaModelSizeToggleHandler = handler;
+    toggleMagentaModelSize.addEventListener('click', magentaModelSizeToggleHandler);
+  }
+
+  function setTemperature(value) {
+    const number = Number(value);
+    const temperature = Number.isFinite(number)
+      ? Math.max(0.5, Math.min(2.0, number))
+      : 1.0;
+    if (temperatureSlider) {
+      temperatureSlider.value = String(temperature);
+    }
+    if (temperatureValue) {
+      temperatureValue.textContent = temperature.toFixed(2);
+    }
+  }
+
+  function setLiveControlsStatus(controls, applied) {
+    if (!controls || typeof controls.temperature === 'undefined') {
+      return;
+    }
+    setTemperature(controls.temperature);
+    if (temperatureValue) {
+      temperatureValue.classList.toggle('live-control-applied', applied);
+      window.setTimeout(() => {
+        temperatureValue.classList.remove('live-control-applied');
+      }, 260);
+    }
+  }
+
+  function onTemperatureChange(handler) {
+    if (!temperatureSlider) {
+      return;
+    }
+
+    if (temperatureChangeHandler) {
+      temperatureSlider.removeEventListener('input', temperatureChangeHandler);
+    }
+
+    temperatureChangeHandler = () => {
+      const value = Number(temperatureSlider.value);
+      setTemperature(value);
+      handler(value);
+    };
+    temperatureSlider.addEventListener('input', temperatureChangeHandler);
+  }
+
   function getManualPromptText() {
     return manualPromptInput?.value.trim() ?? '';
   }
 
   function setManualPromptStatus(prompt) {
     if (manualPromptStatus) {
-      manualPromptStatus.textContent = prompt ? 'manual prompt active' : 'movement prompt';
+      manualPromptStatus.textContent = magentaMotionInputEnabled
+        ? (prompt ? 'manual prompt active' : 'movement prompt')
+        : 'prompt only';
     }
     if (manualPromptInput && prompt !== undefined) {
       manualPromptInput.value = prompt;
@@ -449,9 +618,17 @@ export function createUI(root) {
     updateBackendDebug,
     setBackendDebugEnabled,
     onBackendDebugToggle,
+    setMagentaMotionInputEnabled,
+    onMagentaMotionInputToggle,
+    setMagentaModelSize,
+    onMagentaModelSizeToggle,
+    setTemperature,
+    setLiveControlsStatus,
+    onTemperatureChange,
     setManualPromptStatus,
     onManualPromptSubmit,
     onManualPromptClear,
+    showGestureAction,
     showError,
     onRetry,
   };
