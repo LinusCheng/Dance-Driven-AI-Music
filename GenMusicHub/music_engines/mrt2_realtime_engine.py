@@ -87,7 +87,7 @@ class MRT2RealtimeEngine:
         self._buffer_samples = 0
 
         # latest control / prompt state
-        self._prompt = 'dynamic music control'
+        self._prompt = 'ambient synth smooth pad with small birds'
         self._last_embedded_prompt = None
         self._prompt_changed = False
         self._style_embedding = None
