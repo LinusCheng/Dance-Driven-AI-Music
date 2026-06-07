@@ -23,7 +23,6 @@ class CppEnginePortal:
         self.process: Optional[subprocess.Popen[str]] = None
         self._reader_thread: Optional[threading.Thread] = None
         self._last_response: Dict[str, Any] = {}
-        self._last_prompt = 'dynamic music control'
         self._last_controls: Dict[str, Any] = {}
         self._last_weights = default_prompt_weights()
         self._prompt_texts = default_prompt_texts()
@@ -123,46 +122,6 @@ class CppEnginePortal:
         self.process.stdin.write(json.dumps(message, separators=(',', ':')) + '\n')
         self.process.stdin.flush()
 
-    def update_music_state(self, music_state: Dict[str, Any]) -> None:
-        manual_prompt = str(music_state.get('manualPrompt') or '').strip()
-        prompt_hints = music_state.get('promptHints', []) or []
-        prompt = manual_prompt or ' | '.join(str(item) for item in prompt_hints if item)
-        if not prompt:
-            prompt = self._last_prompt
-
-        controls = {
-            'density': float(music_state.get('density', 0.0)),
-            'brightness': float(music_state.get('brightness', 0.0)),
-            'tension': float(music_state.get('tension', 0.0)),
-            'rhythmicActivity': float(music_state.get('rhythmicActivity', 0.0)),
-            'harmonyWidth': float(music_state.get('harmonyWidth', 0.0)),
-            'bpm': music_state.get('bpm'),
-            'genre': music_state.get('genre', 'adaptive'),
-        }
-        weights = dict(music_state.get('promptWeights') or default_prompt_weights())
-
-        self._last_prompt = prompt
-        self._last_controls = controls
-        self._last_weights = weights
-        self._send({
-            'type': 'updateMusicState',
-            'timestamp': time.time(),
-            'prompt': prompt,
-            'controls': controls,
-            'weights': weights,
-            'promptTexts': self._prompt_texts,
-        })
-
-    def update_motion_controls(self, music_state: Dict[str, Any]) -> None:
-        self._send({
-            'type': 'updateMotionControls',
-            'timestamp': time.time(),
-            'leftArmHeight': music_state.get('leftArmHeight', 'LOW'),
-            'rightArmHeight': music_state.get('rightArmHeight', 'LOW'),
-            'weights': dict(music_state.get('promptWeights') or self._last_weights),
-            'promptTexts': self._prompt_texts,
-        })
-
     def update_live_controls(self, controls: Dict[str, Any]) -> None:
         self._send({
             'type': 'updateLiveControls',
@@ -173,7 +132,6 @@ class CppEnginePortal:
     def update_prompt_nodes(self, prompt_texts: Dict[str, str], weights: Dict[str, float]) -> None:
         self._prompt_texts = dict(prompt_texts)
         self._last_weights = dict(weights)
-        self._last_prompt = ''
         self._send({
             'type': 'updateMusicState',
             'timestamp': time.time(),
@@ -194,7 +152,6 @@ class CppEnginePortal:
         return {
             'connected': self._connected,
             'executable': self.executable_path,
-            'prompt': self._last_prompt,
             'controls': self._last_controls,
             'weights': self._last_weights,
             'promptTexts': self._prompt_texts,

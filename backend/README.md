@@ -2,23 +2,21 @@
 
 Python 3.12 WebSocket control hub for the C++ `GenMusicEngine` process.
 
-This module keeps the same broad shape as `GenMusicHub`:
+This module is now a small audience-control bridge:
 
 ```text
-frontend motion JSON
+audienceFrontend weight JSON
         ↓
 backend/main.py
         ↓
-core/ validation + smoothing
-        ↓
-mapping/ dance-to-music + gesture controls + prompt weights
+mapping/ prompt weights + backend-owned prompt text
         ↓
 music_engines/cpp_engine_portal.py
         ↓
 GenMusicEngine C++ process
 ```
 
-`GenMusicHub` is intentionally not imported or modified. This folder is a separate backend prototype.
+Old dance, gesture, smoothing, and motion-mapping modules were removed from this backend.
 
 ## Language Version
 
@@ -93,5 +91,9 @@ Future frontend or controller message:
 }
 ```
 
-The backend clamps each value to `0..1`, then normalizes all six weights so the
+The backend clamps each value to `0..1`, then normalizes active weights so the
 active weights sum to `1.0`.
+
+Prompt text is currently owned by the backend in `mapping/prompt_weights.py`.
+The future frontend payload can add `promptTexts`, but that route is intentionally
+commented/parked in `main.py` for now.

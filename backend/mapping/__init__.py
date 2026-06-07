@@ -1,1 +1,1 @@
-"""Motion-to-music mapping and gesture controls."""
+"""Prompt-node mapping helpers."""

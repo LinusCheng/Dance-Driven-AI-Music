@@ -3,13 +3,13 @@ import './style.css';
 const BACKEND_URL = 'ws://localhost:8765';
 
 const defaultNodes = [
-  { id: 'node_1', label: 'Anchor', weight: 1, enabled: true },
-  { id: 'node_2', label: 'Groove', weight: 0.5, enabled: false },
-  { id: 'node_3', label: 'Space', weight: 0.5, enabled: false },
+  { id: 'node_1', label: 'Anchor', prompt: 'Harold bud style', weight: 1, enabled: true },
+  { id: 'node_2', label: 'Groove', prompt: 'laurie spiegel', weight: 0.5, enabled: false },
+  { id: 'node_3', label: 'Space', prompt: 'ambient gamelan', weight: 0.5, enabled: false },
   // Re-enable these when you want the full six-node prompt surface again.
-  // { id: 'node_4', label: 'Drive', weight: 0.5, enabled: false },
-  // { id: 'node_5', label: 'Drama', weight: 0.5, enabled: false },
-  // { id: 'node_6', label: 'Funk', weight: 0.5, enabled: false },
+  // { id: 'node_4', label: 'Drive', prompt: 'driving techno industrial pulse', weight: 0.5, enabled: false },
+  // { id: 'node_5', label: 'Drama', prompt: 'cinematic experimental motion', weight: 0.5, enabled: false },
+  // { id: 'node_6', label: 'Funk', prompt: 'funky syncopated bass and drums', weight: 0.5, enabled: false },
 ];
 
 const state = {
@@ -72,6 +72,7 @@ function updateNodeDisplay(node) {
   card.classList.toggle('is-off', !node.enabled);
   card.querySelector('[data-output]')?.replaceChildren(document.createTextNode(`${percent}%`));
   card.querySelector('[data-toggle]')?.replaceChildren(document.createTextNode(node.enabled ? 'On' : 'Off'));
+  card.querySelector('[data-prompt]')?.replaceChildren(document.createTextNode(node.prompt || ''));
   const slider = card.querySelector('[data-field="weight"]');
   if (slider && Number(slider.value) !== Number(node.weight)) {
     slider.value = String(node.weight);
@@ -82,6 +83,18 @@ function updateNodeDisplay(node) {
 function updateAllNodeDisplays() {
   for (const node of state.nodes) {
     updateNodeDisplay(node);
+  }
+}
+
+function updatePromptTexts(promptTexts) {
+  if (!promptTexts || typeof promptTexts !== 'object') {
+    return;
+  }
+  for (const node of state.nodes) {
+    if (promptTexts[node.id] !== undefined) {
+      node.prompt = String(promptTexts[node.id] || '');
+      updateNodeDisplay(node);
+    }
   }
 }
 
@@ -174,6 +187,7 @@ function connect(isRetry = false) {
 
     if (payload.type === 'backendDebug') {
       state.lastEngine = payload.engine?.lastResponse || payload.engine || payload;
+      updatePromptTexts(payload.settings?.promptTexts);
       updateEngineStatus();
     }
   });
@@ -236,6 +250,7 @@ function renderNode(node) {
           <button class="toggle-button" data-toggle data-node="${node.id}" type="button">${node.enabled ? 'On' : 'Off'}</button>
         </div>
       </header>
+      <p class="prompt-text" data-prompt>${escapeHtml(node.prompt || '')}</p>
       <input
         data-node="${node.id}"
         data-field="weight"
